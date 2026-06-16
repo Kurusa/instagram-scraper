@@ -11,6 +11,10 @@ use Kurusa\InstagramScraper\Mappers\InstagramProfileReelsPageMapper;
 
 final readonly class FetchInstagramReelService
 {
+    private const string REEL_PAYLOAD_MARKER = 'video_dash_manifest';
+
+    private const string EMBEDDED_JSON_PATTERN = '/<script type="application\/json"[^>]*\bdata-sjs\b[^>]*>(.+?)<\/script>/s';
+
     public function __construct(
         private InstagramReelPageClient $instagramReelPageClient,
         private InstagramProfileReelsPageMapper $instagramProfileReelsPageMapper,
@@ -26,15 +30,19 @@ final readonly class FetchInstagramReelService
             return null;
         }
 
-        foreach ($this->extractEmbeddedJsonBlobs($html) as $decodedJson) {
-            $instagramProfileReelsPageData = $this
-                ->instagramProfileReelsPageMapper
-                ->fromGraphqlResponse($decodedJson);
+        $decodedJson = $this->findReelPayload($html);
 
-            foreach ($instagramProfileReelsPageData->reels as $instagramSourceReelData) {
-                if ($instagramSourceReelData->shortcode === $shortcode) {
-                    return $instagramSourceReelData;
-                }
+        if ($decodedJson === null) {
+            return null;
+        }
+
+        $instagramProfileReelsPageData = $this
+            ->instagramProfileReelsPageMapper
+            ->fromGraphqlResponse($decodedJson);
+
+        foreach ($instagramProfileReelsPageData->reels as $instagramSourceReelData) {
+            if ($instagramSourceReelData->shortcode === $shortcode) {
+                return $instagramSourceReelData;
             }
         }
 
@@ -42,17 +50,19 @@ final readonly class FetchInstagramReelService
     }
 
     /**
-     * @return iterable<array<string, mixed>>
+     * @return array<string, mixed>|null
      */
-    private function extractEmbeddedJsonBlobs(string $html): iterable
+    private function findReelPayload(string $html): ?array
     {
-        $pattern = '/<script type="application\/json"[^>]*\bdata-sjs\b[^>]*>(.+?)<\/script>/s';
-
-        if (preg_match_all($pattern, $html, $matches) === false) {
-            return;
+        if (preg_match_all(self::EMBEDDED_JSON_PATTERN, $html, $matches) === false) {
+            return null;
         }
 
         foreach ($matches[1] as $jsonBlob) {
+            if (!str_contains($jsonBlob, self::REEL_PAYLOAD_MARKER)) {
+                continue;
+            }
+
             try {
                 $decodedJson = json_decode($jsonBlob, true, 512, JSON_THROW_ON_ERROR);
             } catch (JsonException) {
@@ -60,8 +70,10 @@ final readonly class FetchInstagramReelService
             }
 
             if (is_array($decodedJson)) {
-                yield $decodedJson;
+                return $decodedJson;
             }
         }
+
+        return null;
     }
 }
