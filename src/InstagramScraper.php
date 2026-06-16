@@ -28,7 +28,7 @@ final readonly class InstagramScraper
         $this->instagramGraphqlClient = new InstagramGraphqlClient($config);
         $this->instagramProfileReelShortcodesPageMapper = new InstagramProfileReelShortcodesPageMapper();
         $this->fetchInstagramReelService = new FetchInstagramReelService(
-            instagramReelPageClient: new InstagramReelPageClient($config),
+            instagramReelPageClient: new InstagramReelPageClient(),
             instagramProfileReelsPageMapper: new InstagramProfileReelsPageMapper(),
         );
     }

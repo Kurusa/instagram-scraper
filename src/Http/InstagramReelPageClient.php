@@ -4,16 +4,13 @@ declare(strict_types=1);
 
 namespace Kurusa\InstagramScraper\Http;
 
-use Kurusa\InstagramScraper\Config\InstagramScraperConfig;
 use RuntimeException;
 
 final readonly class InstagramReelPageClient
 {
-    public function __construct(
-        private InstagramScraperConfig $config,
-    )
-    {
-    }
+    private const string USER_AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:150.0) Gecko/20100101 Firefox/150.0';
+
+    private const int TIMEOUT_SECONDS = 30;
 
     public function fetchHtmlByShortcode(string $shortcode): ?string
     {
@@ -28,7 +25,7 @@ final readonly class InstagramReelPageClient
         curl_setopt_array($curlHandle, [
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_FOLLOWLOCATION => true,
-            CURLOPT_TIMEOUT => 30,
+            CURLOPT_TIMEOUT => self::TIMEOUT_SECONDS,
             CURLOPT_IPRESOLVE => CURL_IPRESOLVE_V4,
             CURLOPT_HTTPHEADER => [
                 'accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
@@ -39,7 +36,7 @@ final readonly class InstagramReelPageClient
                 'sec-fetch-site: same-origin',
                 'sec-fetch-user: ?1',
                 'upgrade-insecure-requests: 1',
-                'user-agent: ' . $this->config->userAgent,
+                'user-agent: ' . self::USER_AGENT,
             ],
         ]);
 
