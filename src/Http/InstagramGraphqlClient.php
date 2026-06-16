@@ -10,6 +10,16 @@ use RuntimeException;
 
 final readonly class InstagramGraphqlClient
 {
+    private const string GRAPHQL_URL = 'https://www.instagram.com/graphql/query';
+
+    private const string PROFILE_REELS_DOC_ID = '26909206778772295';
+
+    private const string PROFILE_REELS_CURSOR_KEY = 'max_id';
+
+    private const int TIMEOUT_SECONDS = 20;
+
+    private const int REQUEST_DELAY_MICROSECONDS = 500000;
+
     public function __construct(
         private InstagramScraperConfig $config,
     )
@@ -27,12 +37,12 @@ final readonly class InstagramGraphqlClient
             'target_user_id' => $targetUserId,
         ];
 
-        if ($cursor !== null && $cursor !== '' && $this->config->profileReelsCursorKey !== '') {
-            $variables[$this->config->profileReelsCursorKey] = $cursor;
+        if ($cursor !== null && $cursor !== '') {
+            $variables[self::PROFILE_REELS_CURSOR_KEY] = $cursor;
         }
 
         return $this->postGraphql(
-            documentId: $this->config->profileReelsDocId,
+            documentId: self::PROFILE_REELS_DOC_ID,
             variables: [
                 'data' => $variables,
             ],
@@ -44,8 +54,8 @@ final readonly class InstagramGraphqlClient
         array $variables,
     ): ?array
     {
-        if ($this->config->requestDelayMicroseconds > 0) {
-            usleep($this->config->requestDelayMicroseconds);
+        if (self::REQUEST_DELAY_MICROSECONDS > 0) {
+            usleep(self::REQUEST_DELAY_MICROSECONDS);
         }
 
         $requestBody = http_build_query(
@@ -107,12 +117,12 @@ final readonly class InstagramGraphqlClient
         }
 
         curl_setopt_array($curlHandle, [
-            CURLOPT_URL => $this->config->graphqlUrl,
+            CURLOPT_URL => self::GRAPHQL_URL,
             CURLOPT_POST => true,
             CURLOPT_POSTFIELDS => $requestBody,
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_HEADER => false,
-            CURLOPT_TIMEOUT => $this->config->graphqlTimeout,
+            CURLOPT_TIMEOUT => self::TIMEOUT_SECONDS,
             CURLOPT_FOLLOWLOCATION => false,
             CURLOPT_IPRESOLVE => CURL_IPRESOLVE_V4,
             CURLOPT_HTTPHEADER => [
