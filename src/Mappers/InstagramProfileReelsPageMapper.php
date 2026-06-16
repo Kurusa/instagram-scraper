@@ -56,6 +56,7 @@ final readonly class InstagramProfileReelsPageMapper
                 videoUrl: $this->nullableString($node['video_versions'][0]['url'] ?? null),
                 thumbnailUrl: $this->nullableString($node['image_versions2']['candidates'][0]['url'] ?? null),
                 videoDurationSeconds: $this->videoDurationSecondsFromDashManifest($node['video_dash_manifest'] ?? null),
+                playCount: $this->nullableInt($node['play_count'] ?? null),
                 rawData: $node,
             );
         }

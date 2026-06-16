@@ -5,11 +5,11 @@ declare(strict_types=1);
 namespace Kurusa\InstagramScraper;
 
 use Kurusa\InstagramScraper\Config\InstagramScraperConfig;
-use Kurusa\InstagramScraper\DTO\InstagramProfileReelShortcodesPageData;
+use Kurusa\InstagramScraper\DTO\InstagramProfileReelsPageData;
 use Kurusa\InstagramScraper\DTO\InstagramSourceReelData;
 use Kurusa\InstagramScraper\Http\InstagramGraphqlClient;
 use Kurusa\InstagramScraper\Http\InstagramReelPageClient;
-use Kurusa\InstagramScraper\Mappers\InstagramProfileReelShortcodesPageMapper;
+use Kurusa\InstagramScraper\Mappers\InstagramProfileReelsGraphqlMapper;
 use Kurusa\InstagramScraper\Mappers\InstagramProfileReelsPageMapper;
 use Kurusa\InstagramScraper\Services\FetchInstagramReelService;
 
@@ -17,24 +17,24 @@ final readonly class InstagramScraper
 {
     private InstagramGraphqlClient $instagramGraphqlClient;
 
-    private InstagramProfileReelShortcodesPageMapper $instagramProfileReelShortcodesPageMapper;
+    private InstagramProfileReelsGraphqlMapper $instagramProfileReelsGraphqlMapper;
 
     private FetchInstagramReelService $fetchInstagramReelService;
 
     public function __construct(public InstagramScraperConfig $instagramScraperConfig)
     {
         $this->instagramGraphqlClient = new InstagramGraphqlClient($instagramScraperConfig);
-        $this->instagramProfileReelShortcodesPageMapper = new InstagramProfileReelShortcodesPageMapper();
+        $this->instagramProfileReelsGraphqlMapper = new InstagramProfileReelsGraphqlMapper();
         $this->fetchInstagramReelService = new FetchInstagramReelService(
             instagramReelPageClient: new InstagramReelPageClient($instagramScraperConfig),
             instagramProfileReelsPageMapper: new InstagramProfileReelsPageMapper(),
         );
     }
 
-    public function fetchProfileReelShortcodesPage(
+    public function fetchProfileReelsPage(
         string $targetUserId,
         ?string $cursor = null,
-    ): InstagramProfileReelShortcodesPageData
+    ): InstagramProfileReelsPageData
     {
         $graphqlResponse = $this
             ->instagramGraphqlClient
@@ -44,7 +44,7 @@ final readonly class InstagramScraper
             );
 
         return $this
-            ->instagramProfileReelShortcodesPageMapper
+            ->instagramProfileReelsGraphqlMapper
             ->fromGraphqlResponse($graphqlResponse);
     }
 

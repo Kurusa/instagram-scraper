@@ -16,6 +16,7 @@ final readonly class InstagramSourceReelData
         public ?string $videoUrl,
         public ?string $thumbnailUrl,
         public ?float $videoDurationSeconds,
+        public ?int $playCount,
 
         public array $rawData,
     )
