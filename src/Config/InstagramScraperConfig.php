@@ -10,7 +10,6 @@ final readonly class InstagramScraperConfig
         public string $graphqlCsrfToken,
         public string $graphqlAppId,
         public int $profileReelsPageSize,
-        public string $mediaShortcodeDocId,
     )
     {
     }
