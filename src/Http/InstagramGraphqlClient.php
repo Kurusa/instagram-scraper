@@ -33,8 +33,7 @@ final readonly class InstagramGraphqlClient
     ): ?array
     {
         $variables = [
-            'include_feed_video' => true,
-            'page_size' => $this->config->profileReelsPageSize,
+            'page_size' => 12,
             'target_user_id' => $targetUserId,
         ];
 
