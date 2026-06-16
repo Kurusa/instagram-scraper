@@ -55,6 +55,7 @@ final readonly class InstagramProfileReelsPageMapper
                 commentCount: $this->nullableInt($node['comment_count'] ?? null),
                 videoUrl: $this->nullableString($node['video_versions'][0]['url'] ?? null),
                 thumbnailUrl: $this->nullableString($node['image_versions2']['candidates'][0]['url'] ?? null),
+                videoDurationSeconds: $this->videoDurationSecondsFromDashManifest($node['video_dash_manifest'] ?? null),
                 rawData: $node,
             );
         }
@@ -115,5 +116,18 @@ final readonly class InstagramProfileReelsPageMapper
         }
 
         return null;
+    }
+
+    private function videoDurationSecondsFromDashManifest(mixed $manifestXml): ?float
+    {
+        if (!is_string($manifestXml) || $manifestXml === '') {
+            return null;
+        }
+
+        if (preg_match('/mediaPresentationDuration="PT([\d.]+)S"/', $manifestXml, $matches) !== 1) {
+            return null;
+        }
+
+        return (float)$matches[1];
     }
 }
