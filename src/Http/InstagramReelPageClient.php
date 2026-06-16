@@ -14,9 +14,7 @@ final readonly class InstagramReelPageClient
 
     public function fetchHtmlByShortcode(string $shortcode): ?string
     {
-        $url = 'https://www.instagram.com/reels/' . $shortcode . '/';
-
-        $curlHandle = curl_init($url);
+        $curlHandle = curl_init('https://www.instagram.com/reels/' . $shortcode . '/');
 
         if ($curlHandle === false) {
             throw new RuntimeException('Could not initialize cURL.');

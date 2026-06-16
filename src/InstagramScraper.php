@@ -21,11 +21,9 @@ final readonly class InstagramScraper
 
     private FetchInstagramReelService $fetchInstagramReelService;
 
-    public function __construct(
-        public InstagramScraperConfig $config,
-    )
+    public function __construct(public InstagramScraperConfig $instagramScraperConfig)
     {
-        $this->instagramGraphqlClient = new InstagramGraphqlClient($config);
+        $this->instagramGraphqlClient = new InstagramGraphqlClient($instagramScraperConfig);
         $this->instagramProfileReelShortcodesPageMapper = new InstagramProfileReelShortcodesPageMapper();
         $this->fetchInstagramReelService = new FetchInstagramReelService(
             instagramReelPageClient: new InstagramReelPageClient(),
