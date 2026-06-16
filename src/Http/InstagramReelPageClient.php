@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Kurusa\InstagramScraper\Http;
 
+use Kurusa\InstagramScraper\Config\InstagramProxy;
+use Kurusa\InstagramScraper\Config\InstagramScraperConfig;
 use RuntimeException;
 
 final readonly class InstagramReelPageClient
@@ -11,6 +13,12 @@ final readonly class InstagramReelPageClient
     private const string USER_AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:150.0) Gecko/20100101 Firefox/150.0';
 
     private const int TIMEOUT_SECONDS = 30;
+
+    public function __construct(
+        private InstagramScraperConfig $config,
+    )
+    {
+    }
 
     public function fetchHtmlByShortcode(string $shortcode): ?string
     {
@@ -20,7 +28,9 @@ final readonly class InstagramReelPageClient
             throw new RuntimeException('Could not initialize cURL.');
         }
 
-        curl_setopt_array($curlHandle, [
+        $proxyOptions = InstagramProxy::pickRandom($this->config->proxies)?->curlOptions() ?? [];
+
+        curl_setopt_array($curlHandle, $proxyOptions + [
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_FOLLOWLOCATION => true,
             CURLOPT_TIMEOUT => self::TIMEOUT_SECONDS,

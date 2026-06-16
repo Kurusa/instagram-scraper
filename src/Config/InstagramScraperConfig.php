@@ -10,6 +10,8 @@ final readonly class InstagramScraperConfig
         public string $graphqlCsrfToken,
         public string $graphqlAppId,
         public int $profileReelsPageSize,
+        /** @var InstagramProxy[] */
+        public array $proxies = [],
     )
     {
     }

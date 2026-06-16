@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kurusa\InstagramScraper\Http;
 
 use JsonException;
+use Kurusa\InstagramScraper\Config\InstagramProxy;
 use Kurusa\InstagramScraper\Config\InstagramScraperConfig;
 use RuntimeException;
 
@@ -116,7 +117,9 @@ final readonly class InstagramGraphqlClient
             throw new RuntimeException('Could not initialize cURL.');
         }
 
-        curl_setopt_array($curlHandle, [
+        $proxyOptions = InstagramProxy::pickRandom($this->config->proxies)?->curlOptions() ?? [];
+
+        curl_setopt_array($curlHandle, $proxyOptions + [
             CURLOPT_URL => self::GRAPHQL_URL,
             CURLOPT_POST => true,
             CURLOPT_POSTFIELDS => $requestBody,

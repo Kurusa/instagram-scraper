@@ -17,7 +17,7 @@ final readonly class InstagramProfileReelShortcodesPageMapper
 
         if (is_array($edges)) {
             foreach ($edges as $edge) {
-                $shortcode = $edge['node']['code'] ?? null;
+                $shortcode = $edge['node']['media']['code'] ?? null;
 
                 if (!is_string($shortcode) || $shortcode === '') {
                     continue;
