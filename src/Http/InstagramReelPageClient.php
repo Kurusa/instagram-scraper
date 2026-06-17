@@ -22,7 +22,9 @@ final readonly class InstagramReelPageClient
 
     public function fetchHtmlByShortcode(string $shortcode): ?string
     {
-        $curlHandle = curl_init('https://www.instagram.com/reels/' . $shortcode . '/');
+        $url = 'https://www.instagram.com/reels/' . $shortcode . '/';
+
+        $curlHandle = curl_init($url);
 
         if ($curlHandle === false) {
             throw new RuntimeException('Could not initialize cURL.');
@@ -30,28 +32,51 @@ final readonly class InstagramReelPageClient
 
         $proxyOptions = InstagramProxy::pickRandom($this->config->proxies)?->curlOptions() ?? [];
 
+        $requestHeaders = [
+            'accept' => 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            'accept-language' => 'en-US,en;q=0.9',
+            'referer' => 'https://www.instagram.com/',
+            'sec-fetch-dest' => 'document',
+            'sec-fetch-mode' => 'navigate',
+            'sec-fetch-site' => 'same-origin',
+            'sec-fetch-user' => '?1',
+            'upgrade-insecure-requests' => '1',
+            'user-agent' => self::USER_AGENT,
+        ];
+
         curl_setopt_array($curlHandle, $proxyOptions + [
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_FOLLOWLOCATION => true,
             CURLOPT_TIMEOUT => self::TIMEOUT_SECONDS,
             CURLOPT_IPRESOLVE => CURL_IPRESOLVE_V4,
-            CURLOPT_HTTPHEADER => [
-                'accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-                'accept-language: en-US,en;q=0.9',
-                'referer: https://www.instagram.com/',
-                'sec-fetch-dest: document',
-                'sec-fetch-mode: navigate',
-                'sec-fetch-site: same-origin',
-                'sec-fetch-user: ?1',
-                'upgrade-insecure-requests: 1',
-                'user-agent: ' . self::USER_AGENT,
-            ],
+            CURLOPT_HTTPHEADER => array_map(
+                static fn (string $name, string $value): string => $name . ': ' . $value,
+                array_keys($requestHeaders),
+                array_values($requestHeaders),
+            ),
         ]);
 
+        $startedAt = microtime(true);
         $responseBody = curl_exec($curlHandle);
+        $durationSeconds = microtime(true) - $startedAt;
+
         $statusCode = (int)curl_getinfo($curlHandle, CURLINFO_RESPONSE_CODE);
+        $curlError = curl_error($curlHandle);
 
         curl_close($curlHandle);
+
+        $responseBodyString = is_string($responseBody) ? $responseBody : null;
+
+        $this->config->requestLogger?->logHttpInteraction(
+            method: 'GET',
+            url: $url,
+            requestHeaders: $requestHeaders,
+            requestBody: null,
+            statusCode: $statusCode > 0 ? $statusCode : null,
+            responseBody: $responseBodyString,
+            durationSeconds: $durationSeconds,
+            error: $curlError !== '' ? $curlError : null,
+        );
 
         if (!is_string($responseBody) || $responseBody === '') {
             return null;

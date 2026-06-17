@@ -118,6 +118,12 @@ final readonly class InstagramGraphqlClient
 
         $proxyOptions = InstagramProxy::pickRandom($this->config->proxies)?->curlOptions() ?? [];
 
+        $requestHeaders = [
+            'content-type' => 'application/x-www-form-urlencoded',
+            'x-csrftoken' => $this->config->graphqlCsrfToken,
+            'x-ig-app-id' => $this->config->graphqlAppId,
+        ];
+
         curl_setopt_array($curlHandle, $proxyOptions + [
             CURLOPT_URL => self::GRAPHQL_URL,
             CURLOPT_POST => true,
@@ -127,18 +133,34 @@ final readonly class InstagramGraphqlClient
             CURLOPT_TIMEOUT => self::TIMEOUT_SECONDS,
             CURLOPT_FOLLOWLOCATION => false,
             CURLOPT_IPRESOLVE => CURL_IPRESOLVE_V4,
-            CURLOPT_HTTPHEADER => [
-                'content-type: application/x-www-form-urlencoded',
-                'x-csrftoken: ' . $this->config->graphqlCsrfToken,
-                'x-ig-app-id: ' . $this->config->graphqlAppId,
-            ],
+            CURLOPT_HTTPHEADER => array_map(
+                static fn (string $name, string $value): string => $name . ': ' . $value,
+                array_keys($requestHeaders),
+                array_values($requestHeaders),
+            ),
         ]);
 
+        $startedAt = microtime(true);
         $responseBody = curl_exec($curlHandle);
+        $durationSeconds = microtime(true) - $startedAt;
+
         $statusCode = (int)curl_getinfo($curlHandle, CURLINFO_RESPONSE_CODE);
         $curlError = curl_error($curlHandle);
 
         curl_close($curlHandle);
+
+        $responseBodyString = is_string($responseBody) ? $responseBody : null;
+
+        $this->config->requestLogger?->logHttpInteraction(
+            method: 'POST',
+            url: self::GRAPHQL_URL,
+            requestHeaders: $requestHeaders,
+            requestBody: $requestBody,
+            statusCode: $statusCode > 0 ? $statusCode : null,
+            responseBody: $responseBodyString,
+            durationSeconds: $durationSeconds,
+            error: $curlError !== '' ? $curlError : null,
+        );
 
         if ($responseBody === false) {
             throw new RuntimeException('Instagram cURL request failed: ' . $curlError);

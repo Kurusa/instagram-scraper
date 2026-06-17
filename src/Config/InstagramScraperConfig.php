@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Kurusa\InstagramScraper\Config;
 
+use Kurusa\InstagramScraper\Logging\RequestLogger;
+
 final readonly class InstagramScraperConfig
 {
     public function __construct(
@@ -11,6 +13,7 @@ final readonly class InstagramScraperConfig
         public string $graphqlAppId,
         /** @var InstagramProxy[] */
         public array $proxies = [],
+        public ?RequestLogger $requestLogger = null,
     )
     {
     }
