@@ -19,6 +19,8 @@ final readonly class InstagramGraphqlClient
 
     private const int TIMEOUT_SECONDS = 20;
 
+    private const int MAX_PROXY_ATTEMPTS = 5;
+
     private const int REQUEST_DELAY_MICROSECONDS = 500000;
 
     public function __construct(
@@ -68,7 +70,7 @@ final readonly class InstagramGraphqlClient
             PHP_QUERY_RFC3986,
         );
 
-        $curlResponse = $this->postWithCurl($requestBody);
+        $curlResponse = $this->postWithCurlUsingProxyRetries($requestBody);
 
         if ($curlResponse['status_code'] === 302) {
             return null;
@@ -93,22 +95,42 @@ final readonly class InstagramGraphqlClient
         return $this->decodeResponseBody($curlResponse['body']);
     }
 
-    private function decodeResponseBody(string $body): ?array
+    private function postWithCurlUsingProxyRetries(string $requestBody): array
     {
-        try {
-            $decodedResponse = json_decode($body, true, 512, JSON_THROW_ON_ERROR);
-        } catch (JsonException) {
-            return null;
+        if ($this->config->proxies === []) {
+            return $this->postWithCurl(
+                requestBody: $requestBody,
+                proxy: null,
+            );
         }
 
-        if (!is_array($decodedResponse)) {
-            return null;
+        $proxies = $this->config->proxies;
+        shuffle($proxies);
+
+        $attempts = min(self::MAX_PROXY_ATTEMPTS, count($proxies));
+        $lastException = null;
+
+        for ($attempt = 0; $attempt < $attempts; $attempt++) {
+            try {
+                return $this->postWithCurl(
+                    requestBody: $requestBody,
+                    proxy: $proxies[$attempt],
+                );
+            } catch (RuntimeException $exception) {
+                $lastException = $exception;
+            }
         }
 
-        return $decodedResponse;
+        throw new RuntimeException(
+            message: 'Instagram cURL request failed after trying ' . $attempts . ' proxies.',
+            previous: $lastException,
+        );
     }
 
-    private function postWithCurl(string $requestBody): array
+    private function postWithCurl(
+        string $requestBody,
+        ?InstagramProxy $proxy,
+    ): array
     {
         $curlHandle = curl_init();
 
@@ -116,7 +138,7 @@ final readonly class InstagramGraphqlClient
             throw new RuntimeException('Could not initialize cURL.');
         }
 
-        $proxyOptions = InstagramProxy::pickRandom($this->config->proxies)?->curlOptions() ?? [];
+        $proxyOptions = $proxy?->curlOptions() ?? [];
 
         $requestHeaders = [
             'content-type' => 'application/x-www-form-urlencoded',
@@ -125,20 +147,20 @@ final readonly class InstagramGraphqlClient
         ];
 
         curl_setopt_array($curlHandle, $proxyOptions + [
-            CURLOPT_URL => self::GRAPHQL_URL,
-            CURLOPT_POST => true,
-            CURLOPT_POSTFIELDS => $requestBody,
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_HEADER => false,
-            CURLOPT_TIMEOUT => self::TIMEOUT_SECONDS,
-            CURLOPT_FOLLOWLOCATION => false,
-            CURLOPT_IPRESOLVE => CURL_IPRESOLVE_V4,
-            CURLOPT_HTTPHEADER => array_map(
-                static fn (string $name, string $value): string => $name . ': ' . $value,
-                array_keys($requestHeaders),
-                array_values($requestHeaders),
-            ),
-        ]);
+                CURLOPT_URL => self::GRAPHQL_URL,
+                CURLOPT_POST => true,
+                CURLOPT_POSTFIELDS => $requestBody,
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_HEADER => false,
+                CURLOPT_TIMEOUT => self::TIMEOUT_SECONDS,
+                CURLOPT_FOLLOWLOCATION => false,
+                CURLOPT_IPRESOLVE => CURL_IPRESOLVE_V4,
+                CURLOPT_HTTPHEADER => array_map(
+                    static fn(string $name, string $value): string => $name . ': ' . $value,
+                    array_keys($requestHeaders),
+                    array_values($requestHeaders),
+                ),
+            ]);
 
         $startedAt = microtime(true);
         $responseBody = curl_exec($curlHandle);
@@ -170,5 +192,20 @@ final readonly class InstagramGraphqlClient
             'status_code' => $statusCode,
             'body' => $responseBody,
         ];
+    }
+
+    private function decodeResponseBody(string $body): ?array
+    {
+        try {
+            $decodedResponse = json_decode($body, true, 512, JSON_THROW_ON_ERROR);
+        } catch (JsonException) {
+            return null;
+        }
+
+        if (!is_array($decodedResponse)) {
+            return null;
+        }
+
+        return $decodedResponse;
     }
 }
