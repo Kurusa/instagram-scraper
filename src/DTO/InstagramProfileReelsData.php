@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Kurusa\InstagramScraper\DTO;
 
-final readonly class InstagramProfileReelsPageData
+final readonly class InstagramProfileReelsData
 {
     public function __construct(
-        /** @var InstagramSourceReelData[] $reels */
+        /** @var InstagramReelData[] $reels */
         public array $reels,
 
         public ?string $endCursor,

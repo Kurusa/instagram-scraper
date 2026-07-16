@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Kurusa\InstagramScraper\DTO;
 
-final readonly class InstagramSourceReelData
+final readonly class InstagramReelData
 {
     public function __construct(
         public string $shortcode,

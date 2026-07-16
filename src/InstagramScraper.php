@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Kurusa\InstagramScraper;
 
 use Kurusa\InstagramScraper\Config\InstagramScraperConfig;
-use Kurusa\InstagramScraper\DTO\InstagramProfileReelsPageData;
-use Kurusa\InstagramScraper\DTO\InstagramSourceReelData;
+use Kurusa\InstagramScraper\DTO\InstagramProfileReelsData;
+use Kurusa\InstagramScraper\DTO\InstagramReelData;
 use Kurusa\InstagramScraper\Http\InstagramGraphqlClient;
 use Kurusa\InstagramScraper\Http\InstagramReelPageClient;
 use Kurusa\InstagramScraper\Mappers\InstagramProfileReelsGraphqlMapper;
@@ -34,7 +34,7 @@ final readonly class InstagramScraper
     public function fetchProfileReelsPage(
         string $targetUserId,
         ?string $cursor = null,
-    ): InstagramProfileReelsPageData
+    ): InstagramProfileReelsData
     {
         $graphqlResponse = $this
             ->instagramGraphqlClient
@@ -48,7 +48,7 @@ final readonly class InstagramScraper
             ->fromGraphqlResponse($graphqlResponse);
     }
 
-    public function fetchReelByShortcode(string $shortcode): ?InstagramSourceReelData
+    public function fetchReelByShortcode(string $shortcode): ?InstagramReelData
     {
         return $this
             ->fetchInstagramReelService

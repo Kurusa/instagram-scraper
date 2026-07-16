@@ -4,17 +4,17 @@ declare(strict_types=1);
 
 namespace Kurusa\InstagramScraper\Mappers;
 
-use Kurusa\InstagramScraper\DTO\InstagramProfileReelsPageData;
-use Kurusa\InstagramScraper\DTO\InstagramSourceReelData;
+use Kurusa\InstagramScraper\DTO\InstagramProfileReelsData;
+use Kurusa\InstagramScraper\DTO\InstagramReelData;
 
 final readonly class InstagramProfileReelsPageMapper
 {
-    public function fromGraphqlResponse(?array $response): InstagramProfileReelsPageData
+    public function fromGraphqlResponse(array $response): InstagramProfileReelsData
     {
-        $reelsFeed = $this->findReelsFeed($response ?? []);
+        $reelsFeed = $this->findReelsFeed($response);
 
         if ($reelsFeed === null) {
-            return new InstagramProfileReelsPageData(
+            return new InstagramProfileReelsData(
                 reels: [],
                 endCursor: null,
                 hasNextPage: false,
@@ -46,15 +46,15 @@ final readonly class InstagramProfileReelsPageMapper
                 continue;
             }
 
-            $reels[] = new InstagramSourceReelData(
+            $reels[] = new InstagramReelData(
                 shortcode: $shortcode,
-                instagramMediaPk: $this->nullableString($node['pk'] ?? null),
+                instagramMediaPk: $node['pk'] ?? null,
                 takenAt: $this->nullableInt($node['taken_at'] ?? null),
-                captionText: $this->nullableString($node['caption']['text'] ?? null),
+                captionText: $node['caption']['text'] ?? null,
                 likeCount: $this->nullableInt($node['like_count'] ?? null),
                 commentCount: $this->nullableInt($node['comment_count'] ?? null),
-                videoUrl: $this->nullableString($node['video_versions'][0]['url'] ?? null),
-                thumbnailUrl: $this->nullableString($node['image_versions2']['candidates'][0]['url'] ?? null),
+                videoUrl: $node['video_versions'][0]['url'] ?? null,
+                thumbnailUrl: $node['image_versions2']['candidates'][0]['url'] ?? null,
                 videoDurationSeconds: $this->videoDurationSecondsFromDashManifest($node['video_dash_manifest'] ?? null),
                 playCount: $this->nullableInt($node['play_count'] ?? null),
                 rawData: $node,
@@ -67,9 +67,9 @@ final readonly class InstagramProfileReelsPageMapper
             $pageInfo = [];
         }
 
-        return new InstagramProfileReelsPageData(
+        return new InstagramProfileReelsData(
             reels: $reels,
-            endCursor: $this->nullableString($pageInfo['end_cursor'] ?? null),
+            endCursor: $pageInfo['end_cursor'] ?? null,
             hasNextPage: ($pageInfo['has_next_page'] ?? false) === true,
         );
     }
@@ -95,15 +95,6 @@ final readonly class InstagramProfileReelsPageMapper
         }
 
         return null;
-    }
-
-    private function nullableString(mixed $value): ?string
-    {
-        if (!is_string($value) || $value === '') {
-            return null;
-        }
-
-        return $value;
     }
 
     private function nullableInt(mixed $value): ?int

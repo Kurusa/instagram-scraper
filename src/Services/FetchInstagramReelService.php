@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Kurusa\InstagramScraper\Services;
 
 use JsonException;
-use Kurusa\InstagramScraper\DTO\InstagramSourceReelData;
+use Kurusa\InstagramScraper\DTO\InstagramReelData;
 use Kurusa\InstagramScraper\Http\InstagramReelPageClient;
 use Kurusa\InstagramScraper\Mappers\InstagramProfileReelsPageMapper;
 
@@ -22,7 +22,7 @@ final readonly class FetchInstagramReelService
     {
     }
 
-    public function fetchByShortcode(string $shortcode): ?InstagramSourceReelData
+    public function fetchByShortcode(string $shortcode): ?InstagramReelData
     {
         $html = $this->instagramReelPageClient->fetchHtmlByShortcode($shortcode);
 

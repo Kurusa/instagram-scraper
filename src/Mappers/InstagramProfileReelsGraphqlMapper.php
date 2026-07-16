@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace Kurusa\InstagramScraper\Mappers;
 
-use Kurusa\InstagramScraper\DTO\InstagramProfileReelsPageData;
-use Kurusa\InstagramScraper\DTO\InstagramSourceReelData;
+use Kurusa\InstagramScraper\DTO\InstagramProfileReelsData;
+use Kurusa\InstagramScraper\DTO\InstagramReelData;
 
 final readonly class InstagramProfileReelsGraphqlMapper
 {
-    public function fromGraphqlResponse(?array $response): InstagramProfileReelsPageData
+    public function fromGraphqlResponse(array $response): InstagramProfileReelsData
     {
         $connection = $response['data']['xdt_api__v1__clips__user__connection_v2'] ?? [];
 
@@ -32,15 +32,15 @@ final readonly class InstagramProfileReelsGraphqlMapper
                     continue;
                 }
 
-                $reels[] = new InstagramSourceReelData(
+                $reels[] = new InstagramReelData(
                     shortcode: $shortcode,
-                    instagramMediaPk: $this->nullableString($media['pk'] ?? null),
+                    instagramMediaPk: $media['pk'] ?? null,
                     takenAt: null,
                     captionText: null,
                     likeCount: $this->nullableInt($media['like_count'] ?? null),
                     commentCount: $this->nullableInt($media['comment_count'] ?? null),
                     videoUrl: null,
-                    thumbnailUrl: $this->nullableString($media['image_versions2']['candidates'][0]['url'] ?? null),
+                    thumbnailUrl: $media['image_versions2']['candidates'][0]['url'] ?? null,
                     videoDurationSeconds: null,
                     playCount: $this->nullableInt($media['play_count'] ?? null),
                     rawData: $media,
@@ -48,20 +48,11 @@ final readonly class InstagramProfileReelsGraphqlMapper
             }
         }
 
-        return new InstagramProfileReelsPageData(
+        return new InstagramProfileReelsData(
             reels: $reels,
             endCursor: is_string($pageInfo['end_cursor'] ?? null) ? $pageInfo['end_cursor'] : null,
             hasNextPage: (bool)($pageInfo['has_next_page'] ?? false),
         );
-    }
-
-    private function nullableString(mixed $value): ?string
-    {
-        if (!is_string($value) || $value === '') {
-            return null;
-        }
-
-        return $value;
     }
 
     private function nullableInt(mixed $value): ?int
