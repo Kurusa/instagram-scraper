@@ -240,6 +240,9 @@ The LSD form value is also redacted. Logging failures remain the responsibility 
 
 - A missing Python executable, missing script, invalid child-process response, or child
   process timeout raises `RuntimeException`.
+- Profile GraphQL transport failures, non-2xx responses, empty responses, and invalid
+  JSON raise `RuntimeException` so queue consumers can retry them with backoff. A
+  rate-limited response is never mapped to a valid empty/terminal profile page.
 - Instagram ruling/GraphQL rejection returns `null` after one fresh-session retry.
 - The detail mapper returns `null` when the response does not contain a valid shortcode.
 - The service rejects a response whose shortcode does not match the requested shortcode.

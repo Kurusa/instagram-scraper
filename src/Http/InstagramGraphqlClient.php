@@ -30,7 +30,7 @@ final readonly class InstagramGraphqlClient
     public function fetchProfileReelsPage(
         string $targetUserId,
         ?string $cursor = null,
-    ): ?array
+    ): array
     {
         $variables = [
             'page_size' => 12,
@@ -50,7 +50,7 @@ final readonly class InstagramGraphqlClient
     private function postGraphql(
         string $documentId,
         array $variables,
-    ): ?array
+    ): array
     {
         if (self::REQUEST_DELAY_MICROSECONDS > 0) {
             usleep(self::REQUEST_DELAY_MICROSECONDS);
@@ -70,12 +70,18 @@ final readonly class InstagramGraphqlClient
 
         $curlResponse = $this->postWithCurl($requestBody);
 
-        if (
-            $curlResponse['status_code'] < 200
-            || $curlResponse['status_code'] >= 300
-            || $curlResponse['body'] === ''
-        ) {
-            return null;
+        if ($curlResponse['status_code'] < 200 || $curlResponse['status_code'] >= 300) {
+            $message = $this->responseErrorMessage($curlResponse['body']);
+
+            throw new RuntimeException(sprintf(
+                'Instagram profile GraphQL returned HTTP %d%s.',
+                $curlResponse['status_code'],
+                $message === null ? '' : ': ' . $message,
+            ));
+        }
+
+        if ($curlResponse['body'] === '') {
+            throw new RuntimeException('Instagram profile GraphQL returned an empty response.');
         }
 
         return $this->decodeResponseBody($curlResponse['body']);
@@ -146,7 +152,25 @@ final readonly class InstagramGraphqlClient
         ];
     }
 
-    private function decodeResponseBody(string $body): ?array
+    private function decodeResponseBody(string $body): array
+    {
+        try {
+            $decodedResponse = json_decode($body, true, 512, JSON_THROW_ON_ERROR);
+        } catch (JsonException $exception) {
+            throw new RuntimeException(
+                'Instagram profile GraphQL returned invalid JSON.',
+                previous: $exception,
+            );
+        }
+
+        if (!is_array($decodedResponse)) {
+            throw new RuntimeException('Instagram profile GraphQL returned an invalid response.');
+        }
+
+        return $decodedResponse;
+    }
+
+    private function responseErrorMessage(string $body): ?string
     {
         try {
             $decodedResponse = json_decode($body, true, 512, JSON_THROW_ON_ERROR);
@@ -154,10 +178,12 @@ final readonly class InstagramGraphqlClient
             return null;
         }
 
-        if (!is_array($decodedResponse)) {
-            return null;
-        }
+        $message = is_array($decodedResponse)
+            ? ($decodedResponse['message'] ?? null)
+            : null;
 
-        return $decodedResponse;
+        return is_string($message) && $message !== ''
+            ? $message
+            : null;
     }
 }
