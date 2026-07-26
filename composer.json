@@ -13,5 +13,13 @@
             "Kurusa\\InstagramScraper\\": "src/"
         }
     },
+    "autoload-dev": {
+        "psr-4": {
+            "Kurusa\\InstagramScraper\\Tests\\": "tests/"
+        }
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^12.5"
+    },
     "minimum-stability": "stable"
 }

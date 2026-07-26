@@ -4,76 +4,37 @@ declare(strict_types=1);
 
 namespace Kurusa\InstagramScraper\Services;
 
-use JsonException;
 use Kurusa\InstagramScraper\DTO\InstagramReelData;
-use Kurusa\InstagramScraper\Http\InstagramReelPageClient;
-use Kurusa\InstagramScraper\Mappers\InstagramProfileReelsPageMapper;
+use Kurusa\InstagramScraper\Http\InstagramReelGraphqlClient;
+use Kurusa\InstagramScraper\Mappers\InstagramReelGraphqlMapper;
 
 final readonly class FetchInstagramReelService
 {
-    private const string REEL_PAYLOAD_MARKER = 'video_dash_manifest';
-
-    private const string EMBEDDED_JSON_PATTERN = '/<script type="application\/json"[^>]*\bdata-sjs\b[^>]*>(.+?)<\/script>/s';
-
     public function __construct(
-        private InstagramReelPageClient $instagramReelPageClient,
-        private InstagramProfileReelsPageMapper $instagramProfileReelsPageMapper,
+        private InstagramReelGraphqlClient $instagramReelGraphqlClient,
+        private InstagramReelGraphqlMapper $instagramReelGraphqlMapper,
     )
     {
     }
 
-    public function fetchByShortcode(string $shortcode): ?InstagramReelData
+    public function fetchByShortcode(
+        string $shortcode,
+        ?string $instagramMediaPk = null,
+    ): ?InstagramReelData
     {
-        $html = $this->instagramReelPageClient->fetchHtmlByShortcode($shortcode);
+        $media = $this->instagramReelGraphqlClient->fetchMediaByShortcode(
+            shortcode: $shortcode,
+            instagramMediaPk: $instagramMediaPk,
+        );
 
-        if ($html === null) {
+        if ($media === null) {
             return null;
         }
 
-        $decodedJson = $this->findReelPayload($html);
+        $instagramReelData = $this->instagramReelGraphqlMapper->fromMedia($media);
 
-        if ($decodedJson === null) {
-            return null;
-        }
-
-        $instagramProfileReelsPageData = $this
-            ->instagramProfileReelsPageMapper
-            ->fromGraphqlResponse($decodedJson);
-
-        foreach ($instagramProfileReelsPageData->reels as $instagramSourceReelData) {
-            if ($instagramSourceReelData->shortcode === $shortcode) {
-                return $instagramSourceReelData;
-            }
-        }
-
-        return null;
-    }
-
-    /**
-     * @return array<string, mixed>|null
-     */
-    private function findReelPayload(string $html): ?array
-    {
-        if (preg_match_all(self::EMBEDDED_JSON_PATTERN, $html, $matches) === false) {
-            return null;
-        }
-
-        foreach ($matches[1] as $jsonBlob) {
-            if (!str_contains($jsonBlob, self::REEL_PAYLOAD_MARKER)) {
-                continue;
-            }
-
-            try {
-                $decodedJson = json_decode($jsonBlob, true, 512, JSON_THROW_ON_ERROR);
-            } catch (JsonException) {
-                continue;
-            }
-
-            if (is_array($decodedJson)) {
-                return $decodedJson;
-            }
-        }
-
-        return null;
+        return $instagramReelData?->shortcode === $shortcode
+            ? $instagramReelData
+            : null;
     }
 }

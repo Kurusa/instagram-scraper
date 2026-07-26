@@ -14,6 +14,11 @@ final readonly class InstagramScraperConfig
         /** @var InstagramProxy[] */
         public array $proxies = [],
         public ?RequestLogger $requestLogger = null,
+        public string $pythonExecutable = 'python3',
+        public ?string $pythonClientScriptPath = null,
+        public string $browserImpersonation = 'chrome',
+        public int $pythonRequestTimeoutSeconds = 45,
+        public int $anonymousSessionTtlSeconds = 300,
     )
     {
     }

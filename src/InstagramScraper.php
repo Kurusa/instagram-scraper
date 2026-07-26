@@ -8,9 +8,9 @@ use Kurusa\InstagramScraper\Config\InstagramScraperConfig;
 use Kurusa\InstagramScraper\DTO\InstagramProfileReelsData;
 use Kurusa\InstagramScraper\DTO\InstagramReelData;
 use Kurusa\InstagramScraper\Http\InstagramGraphqlClient;
-use Kurusa\InstagramScraper\Http\InstagramReelPageClient;
+use Kurusa\InstagramScraper\Http\InstagramReelGraphqlClient;
 use Kurusa\InstagramScraper\Mappers\InstagramProfileReelsGraphqlMapper;
-use Kurusa\InstagramScraper\Mappers\InstagramProfileReelsPageMapper;
+use Kurusa\InstagramScraper\Mappers\InstagramReelGraphqlMapper;
 use Kurusa\InstagramScraper\Services\FetchInstagramReelService;
 
 final readonly class InstagramScraper
@@ -26,8 +26,8 @@ final readonly class InstagramScraper
         $this->instagramGraphqlClient = new InstagramGraphqlClient($instagramScraperConfig);
         $this->instagramProfileReelsGraphqlMapper = new InstagramProfileReelsGraphqlMapper();
         $this->fetchInstagramReelService = new FetchInstagramReelService(
-            instagramReelPageClient: new InstagramReelPageClient($instagramScraperConfig),
-            instagramProfileReelsPageMapper: new InstagramProfileReelsPageMapper(),
+            instagramReelGraphqlClient: new InstagramReelGraphqlClient($instagramScraperConfig),
+            instagramReelGraphqlMapper: new InstagramReelGraphqlMapper(),
         );
     }
 
@@ -48,10 +48,16 @@ final readonly class InstagramScraper
             ->fromGraphqlResponse($graphqlResponse);
     }
 
-    public function fetchReelByShortcode(string $shortcode): ?InstagramReelData
+    public function fetchReelByShortcode(
+        string $shortcode,
+        ?string $instagramMediaPk = null,
+    ): ?InstagramReelData
     {
         return $this
             ->fetchInstagramReelService
-            ->fetchByShortcode($shortcode);
+            ->fetchByShortcode(
+                shortcode: $shortcode,
+                instagramMediaPk: $instagramMediaPk,
+            );
     }
 }
