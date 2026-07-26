@@ -1,6 +1,6 @@
 {
     "name": "kurusa/instagram-scraper",
-    "description": "Instagram GraphQL + reel-page scraping client (no framework).",
+    "description": "Framework-independent Instagram GraphQL scraping client.",
     "type": "library",
     "license": "MIT",
     "require": {

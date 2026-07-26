@@ -10,6 +10,7 @@ use Kurusa\InstagramScraper\DTO\InstagramReelData;
 use Kurusa\InstagramScraper\Http\InstagramGraphqlClient;
 use Kurusa\InstagramScraper\Http\InstagramReelGraphqlClient;
 use Kurusa\InstagramScraper\Mappers\InstagramProfileReelsGraphqlMapper;
+use Kurusa\InstagramScraper\Mappers\InstagramReelDataMerger;
 use Kurusa\InstagramScraper\Mappers\InstagramReelGraphqlMapper;
 use Kurusa\InstagramScraper\Services\FetchInstagramReelService;
 
@@ -28,6 +29,10 @@ final readonly class InstagramScraper
         $this->fetchInstagramReelService = new FetchInstagramReelService(
             instagramReelGraphqlClient: new InstagramReelGraphqlClient($instagramScraperConfig),
             instagramReelGraphqlMapper: new InstagramReelGraphqlMapper(),
+            instagramGraphqlClient: $this->instagramGraphqlClient,
+            instagramProfileReelsGraphqlMapper: $this->instagramProfileReelsGraphqlMapper,
+            instagramReelDataMerger: new InstagramReelDataMerger(),
+            profileReelLookupMaxPages: $instagramScraperConfig->profileReelLookupMaxPages,
         );
     }
 
@@ -45,19 +50,36 @@ final readonly class InstagramScraper
 
         return $this
             ->instagramProfileReelsGraphqlMapper
-            ->fromGraphqlResponse($graphqlResponse);
+            ->fromGraphqlResponse($graphqlResponse ?? []);
     }
 
+    public function fetchReel(InstagramReelData $sourceReel): ?InstagramReelData
+    {
+        return $this
+            ->fetchInstagramReelService
+            ->fetch($sourceReel);
+    }
+
+    /**
+     * @deprecated Pass the available profile data to fetchReel() when possible.
+     */
     public function fetchReelByShortcode(
         string $shortcode,
         ?string $instagramMediaPk = null,
     ): ?InstagramReelData
     {
-        return $this
-            ->fetchInstagramReelService
-            ->fetchByShortcode(
-                shortcode: $shortcode,
-                instagramMediaPk: $instagramMediaPk,
-            );
+        return $this->fetchReel(new InstagramReelData(
+            shortcode: $shortcode,
+            instagramMediaPk: $instagramMediaPk,
+            takenAt: null,
+            captionText: null,
+            likeCount: null,
+            commentCount: null,
+            videoUrl: null,
+            thumbnailUrl: null,
+            videoDurationSeconds: null,
+            playCount: null,
+            rawData: [],
+        ));
     }
 }

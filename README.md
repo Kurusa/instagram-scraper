@@ -42,7 +42,9 @@ The profile query is therefore the source of reel discovery, pagination, and
 
 ### 2. Individual reel details
 
-`InstagramScraper::fetchReelByShortcode()` delegates to a persistent Python process.
+`InstagramScraper::fetchReel()` accepts the profile/list `InstagramReelData`, delegates
+the detail request to a persistent Python process, and returns a complete merged DTO.
+`fetchReelByShortcode()` remains available for callers that only have a URL/shortcode.
 The Python client uses `curl_cffi` because Instagram only returns the logged-out
 detail GraphQL response to requests with a browser-compatible TLS fingerprint.
 Ordinary PHP/libcurl receives the Instagram homepage instead of JSON.
@@ -92,20 +94,39 @@ data.xig_polaris_media.if_not_gated_logged_out
 | `videoDurationSeconds`    | parsed from `video_dash_manifest`   |
 | `playCount`               | not returned by this detail document |
 
-The consuming application must retain `playCount` from the profile response when
-merging it with the detail response. The current logged-out detail document does not
-contain `play_count`, `view_count`, or `video_view_count`.
+`InstagramReelDataMerger` retains `playCount` from the profile response while applying
+the detail fields. The current logged-out detail document does not contain
+`play_count`, `view_count`, or `video_view_count`; consumers do not need to implement
+this merge themselves.
 
-## Why there are two GraphQL requests
+## Resolving `playCount`
 
 The persisted Instagram GraphQL documents have fixed selections:
 
 - the profile document returns `play_count`, but not caption/date/video details;
 - the detail document returns caption/date/video details, but not `play_count`.
 
-The two responses must therefore be merged by shortcode or media PK. This still avoids
-the old per-reel HTML request, whose response was substantially larger than the detail
-JSON response.
+When `fetchReel()` receives a DTO produced by `fetchProfileReelsPage()`, its
+`rawData.play_count` marks it as a profile snapshot. No additional profile request is
+made; the scraper only fetches the detail document and merges the two DTOs.
+
+When the caller only has a shortcode, or passes a stored DTO without a profile
+snapshot, the scraper:
+
+1. fetches the detail document and reads `user.pk`;
+2. requests the owner's reels in pages of 12;
+3. matches the target by shortcode;
+4. merges that profile result with the detail result.
+
+The fallback stops when the reel is found, Instagram reports no next page, or
+`profileReelLookupMaxPages` is reached. Although the document accepts `page_size`,
+live requests for 50 and 100 items are currently capped by Instagram at 12. Relay's
+`after`/`before` values are opaque cursors from a previous response. They cannot be
+derived from a shortcode or media PK, and the profile document exposes no single-media
+filter.
+
+This still avoids the old per-reel HTML request, whose response was substantially
+larger than the detail JSON response.
 
 ## Python process and session reuse
 
@@ -170,6 +191,7 @@ Relevant optional settings:
 | `browserImpersonation` | `chrome` | `curl_cffi` browser fingerprint |
 | `pythonRequestTimeoutSeconds` | `45` | Timeout for one Instagram request |
 | `anonymousSessionTtlSeconds` | `300` | Anonymous cookie/token reuse period |
+| `profileReelLookupMaxPages` | `30` | Maximum 12-item pages for shortcode-only play-count lookup |
 
 The PHP runtime must allow `proc_open`.
 
@@ -193,6 +215,8 @@ The LSD form value is also redacted. Logging failures remain the responsibility 
 - Instagram ruling/GraphQL rejection returns `null` after one fresh-session retry.
 - The detail mapper returns `null` when the response does not contain a valid shortcode.
 - The service rejects a response whose shortcode does not match the requested shortcode.
+- Shortcode-only fetching can return a DTO with `playCount=null` when the reel is not
+  found before the configured profile lookup limit.
 
 ## Tests
 

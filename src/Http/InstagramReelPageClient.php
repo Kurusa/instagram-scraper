@@ -63,8 +63,6 @@ final readonly class InstagramReelPageClient
         $statusCode = (int)curl_getinfo($curlHandle, CURLINFO_RESPONSE_CODE);
         $curlError = curl_error($curlHandle);
 
-        curl_close($curlHandle);
-
         $responseBodyString = is_string($responseBody) ? $responseBody : null;
 
         $this->config->requestLogger?->logHttpInteraction(
