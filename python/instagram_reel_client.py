@@ -18,6 +18,8 @@ DETAIL_GRAPHQL_URL = f"{INSTAGRAM_BASE_URL}/api/graphql"
 RULING_URL = f"{INSTAGRAM_BASE_URL}/api/v1/web/get_ruling_for_content/"
 DETAIL_DOC_ID = "27130156389949648"
 DETAIL_FRIENDLY_NAME = "PolarisLoggedOutDesktopWWWPostRootContentQuery"
+PROFILE_DOC_ID = "36836636079261063"
+PROFILE_FRIENDLY_NAME = "PolarisLoggedOutDesktopWWWProfileRootContentQuery"
 SHORTCODE_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"
 
 
@@ -76,6 +78,9 @@ class InstagramReelClient:
         interactions: list[dict[str, Any]] = []
 
         try:
+            if command.get("action") == "resolve_profile":
+                return self._resolve_profile(command, interactions, allow_session_retry=True)
+
             return self._fetch(command, interactions, allow_session_retry=True)
         except Exception as exception:
             return {
@@ -209,6 +214,124 @@ class InstagramReelClient:
         return {
             "ok": True,
             "media": media,
+            "interactions": interactions,
+        }
+
+    def _resolve_profile(
+        self,
+        command: dict[str, Any],
+        interactions: list[dict[str, Any]],
+        allow_session_retry: bool,
+    ) -> dict[str, Any]:
+        username = str(command["username"]).strip().lstrip("@")
+        app_id = str(command.get("app_id") or "936619743392459")
+        impersonate = str(command.get("impersonate") or "chrome")
+        timeout = int(command.get("request_timeout_seconds") or 45)
+        session_ttl = int(command.get("session_ttl_seconds") or 300)
+        proxy = command.get("proxy")
+        key = proxy_key(proxy)
+
+        if not username:
+            raise ValueError("Instagram username is required.")
+
+        anonymous_session = self._get_session(
+            key=key,
+            proxy=proxy,
+            impersonate=impersonate,
+            timeout=timeout,
+            ttl_seconds=session_ttl,
+            interactions=interactions,
+        )
+
+        headers = {
+            "Accept": "*/*",
+            "Content-Type": "application/x-www-form-urlencoded",
+            "Origin": INSTAGRAM_BASE_URL,
+            "Referer": f"{INSTAGRAM_BASE_URL}/{username}/",
+            "X-ASBD-ID": "359341",
+            "X-FB-Friendly-Name": PROFILE_FRIENDLY_NAME,
+            "X-IG-App-ID": app_id,
+            "X-IG-WWW-Claim": "0",
+            "X-Requested-With": "XMLHttpRequest",
+        }
+
+        if anonymous_session.csrf_token:
+            headers["X-CSRFToken"] = anonymous_session.csrf_token
+
+        if anonymous_session.lsd_token:
+            headers["X-FB-LSD"] = anonymous_session.lsd_token
+
+        graphql_form = {
+            "lsd": anonymous_session.lsd_token or "",
+            "fb_api_caller_class": "RelayModern",
+            "fb_api_req_friendly_name": PROFILE_FRIENDLY_NAME,
+            "server_timestamps": "true",
+            "variables": json.dumps({"username": username}, separators=(",", ":")),
+            "doc_id": PROFILE_DOC_ID,
+        }
+        logged_graphql_form = {
+            **graphql_form,
+            "lsd": "[redacted]" if graphql_form["lsd"] else "",
+        }
+
+        started_at = time.monotonic()
+        response = anonymous_session.client.post(
+            DETAIL_GRAPHQL_URL,
+            headers=headers,
+            data=graphql_form,
+            allow_redirects=False,
+            timeout=timeout,
+        )
+        interactions.append(self._interaction(
+            response=response,
+            method="POST",
+            url=DETAIL_GRAPHQL_URL,
+            request_headers=self._safe_graphql_headers(headers),
+            request_body=urlencode(logged_graphql_form),
+            duration_seconds=time.monotonic() - started_at,
+            include_response_body=True,
+        ))
+
+        profile = (
+            self._response_json(response)
+            .get("data", {})
+            .get("xig_user_by_username")
+        )
+
+        if response.status_code != 200 or not isinstance(profile, dict):
+            session = self.sessions.pop(key, None)
+
+            if session is not None:
+                session.client.close()
+
+            if allow_session_retry:
+                return self._resolve_profile(
+                    command,
+                    interactions,
+                    allow_session_retry=False,
+                )
+
+            return {
+                "ok": False,
+                "error": f"Instagram profile GraphQL failed with HTTP {response.status_code}.",
+                "interactions": interactions,
+            }
+
+        user_id = profile.get("pk")
+
+        if user_id is None or str(user_id) == "":
+            return {
+                "ok": False,
+                "error": "Instagram profile GraphQL returned no profile pk.",
+                "interactions": interactions,
+            }
+
+        return {
+            "ok": True,
+            "profile": {
+                "id": str(user_id),
+                "username": str(profile.get("username") or username),
+            },
             "interactions": interactions,
         }
 

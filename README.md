@@ -2,15 +2,42 @@
 
 Framework-independent Instagram client used to:
 
-1. paginate through a public profile's reels;
-2. fetch the full logged-out detail payload for an individual reel;
-3. normalize both responses into `InstagramReelData`.
+1. resolve a public `@username` to its numeric Instagram profile ID;
+2. paginate through a public profile's reels;
+3. fetch the full logged-out detail payload for an individual reel;
+4. normalize both reel responses into `InstagramReelData`.
 
 The package deliberately contains no Laravel-specific code.
 
 ## Data flow
 
-### 1. Profile reels
+### 1. Username to numeric profile ID
+
+`InstagramScraper::fetchProfileByUsername()` accepts a username with or without `@`.
+The persistent browser-compatible Python client calls:
+
+```text
+POST https://www.instagram.com/api/graphql
+doc_id=36836636079261063
+variables={"username":"itsheidiwong"}
+friendly_name=PolarisLoggedOutDesktopWWWProfileRootContentQuery
+```
+
+The method returns the canonical username and `data.xig_user_by_username.pk`. The
+`pk` is the numeric ID expected by the profile reels query. Do not use the response's
+separate `id` field: it identifies a different Instagram entity.
+
+```php
+$profile = $scraper->fetchProfileByUsername('@itsheidiwong');
+
+// ['id' => '348796639', 'username' => 'itsheidiwong']
+```
+
+This profile-root GraphQL response is much smaller than the legacy
+`/api/v1/users/web_profile_info/` response and works through the same anonymous
+session used for reel details.
+
+### 2. Profile reels
 
 `InstagramScraper::fetchProfileReelsPage()` calls:
 
@@ -40,7 +67,7 @@ returns the reel list and pagination information.
 The profile query is therefore the source of reel discovery, pagination, and
 `play_count`.
 
-### 2. Individual reel details
+### 3. Individual reel details
 
 `InstagramScraper::fetchReel()` accepts the profile/list `InstagramReelData`, delegates
 the detail request to a persistent Python process, and returns a complete merged DTO.
@@ -200,6 +227,7 @@ The PHP runtime must allow `proc_open`.
 When a `RequestLogger` is configured, the client logs:
 
 - anonymous-session initialization metadata, without storing the homepage body;
+- the profile-resolution GraphQL response;
 - the small ruling response;
 - the complete detail GraphQL response;
 - status, duration, request body, and safe request headers.

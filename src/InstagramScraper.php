@@ -22,12 +22,15 @@ final readonly class InstagramScraper
 
     private FetchInstagramReelService $fetchInstagramReelService;
 
+    private InstagramReelGraphqlClient $instagramReelGraphqlClient;
+
     public function __construct(public InstagramScraperConfig $instagramScraperConfig)
     {
         $this->instagramGraphqlClient = new InstagramGraphqlClient($instagramScraperConfig);
         $this->instagramProfileReelsGraphqlMapper = new InstagramProfileReelsGraphqlMapper();
+        $this->instagramReelGraphqlClient = new InstagramReelGraphqlClient($instagramScraperConfig);
         $this->fetchInstagramReelService = new FetchInstagramReelService(
-            instagramReelGraphqlClient: new InstagramReelGraphqlClient($instagramScraperConfig),
+            instagramReelGraphqlClient: $this->instagramReelGraphqlClient,
             instagramReelGraphqlMapper: new InstagramReelGraphqlMapper(),
             instagramGraphqlClient: $this->instagramGraphqlClient,
             instagramProfileReelsGraphqlMapper: $this->instagramProfileReelsGraphqlMapper,
@@ -58,6 +61,16 @@ final readonly class InstagramScraper
         return $this
             ->fetchInstagramReelService
             ->fetch($sourceReel);
+    }
+
+    /**
+     * @return array{id: string, username: string}|null
+     */
+    public function fetchProfileByUsername(string $username): ?array
+    {
+        return $this
+            ->instagramReelGraphqlClient
+            ->fetchProfileByUsername($username);
     }
 
     /**

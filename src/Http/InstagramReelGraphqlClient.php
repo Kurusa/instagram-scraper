@@ -61,6 +61,51 @@ final class InstagramReelGraphqlClient
     }
 
     /**
+     * @return array{id: string, username: string}|null
+     */
+    public function fetchProfileByUsername(string $username): ?array
+    {
+        $proxy = InstagramProxy::pickRandom($this->config->proxies);
+
+        $command = [
+            'action' => 'resolve_profile',
+            'username' => $username,
+            'app_id' => $this->config->graphqlAppId,
+            'impersonate' => $this->config->browserImpersonation,
+            'request_timeout_seconds' => $this->config->pythonRequestTimeoutSeconds,
+            'session_ttl_seconds' => $this->config->anonymousSessionTtlSeconds,
+            'proxy' => $proxy === null ? null : [
+                'host' => $proxy->ip,
+                'port' => $proxy->port,
+                'username' => $proxy->user,
+                'password' => $proxy->password,
+            ],
+        ];
+
+        $result = $this->execute($command);
+        $this->logInteractions($result['interactions'] ?? []);
+
+        if (($result['ok'] ?? false) !== true) {
+            return null;
+        }
+
+        $profile = $result['profile'] ?? null;
+
+        if (
+            !is_array($profile)
+            || !is_string($profile['id'] ?? null)
+            || !is_string($profile['username'] ?? null)
+        ) {
+            return null;
+        }
+
+        return [
+            'id' => $profile['id'],
+            'username' => $profile['username'],
+        ];
+    }
+
+    /**
      * @param array<string, mixed> $command
      * @return array<string, mixed>
      */
