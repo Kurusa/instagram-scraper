@@ -71,15 +71,8 @@ final readonly class InstagramGraphqlClient
         $curlResponse = $this->postWithCurl($requestBody);
 
         if (
-            in_array(
-                [
-                    302,
-                    401,
-                    429,
-                ],
-                $curlResponse['status_code'],
-            )
-            || $curlResponse['status_code'] < 200 || $curlResponse['status_code'] >= 300
+            $curlResponse['status_code'] < 200
+            || $curlResponse['status_code'] >= 300
             || $curlResponse['body'] === ''
         ) {
             return null;
