@@ -65,14 +65,14 @@ final readonly class InstagramFollowersClient
         }
 
         $url = self::GRAPHQL_URL . '?' . http_build_query(
-            [
-                'query_hash' => self::FOLLOWERS_QUERY_HASH,
-                'variables' => $encodedVariables,
-            ],
-            '',
-            '&',
-            PHP_QUERY_RFC3986,
-        );
+                [
+                    'query_hash' => self::FOLLOWERS_QUERY_HASH,
+                    'variables' => $encodedVariables,
+                ],
+                '',
+                '&',
+                PHP_QUERY_RFC3986,
+            );
 
         if (self::REQUEST_DELAY_MICROSECONDS > 0) {
             usleep(self::REQUEST_DELAY_MICROSECONDS);
@@ -167,7 +167,7 @@ final readonly class InstagramFollowersClient
         $message = $exception->getMessage();
 
         if (preg_match('/HTTP (\d{3})/', $message, $matches) === 1) {
-            $statusCode = (int) $matches[1];
+            $statusCode = (int)$matches[1];
 
             return $statusCode === 429 || $statusCode === 408 || $statusCode >= 500;
         }
@@ -245,6 +245,6 @@ final readonly class InstagramFollowersClient
             return false;
         }
 
-        return is_array($decoded) && (bool) ($decoded['require_login'] ?? false);
+        return is_array($decoded) && (bool)($decoded['require_login'] ?? false);
     }
 }

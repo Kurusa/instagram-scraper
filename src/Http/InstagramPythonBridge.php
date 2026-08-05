@@ -101,8 +101,8 @@ final class InstagramPythonBridge
                 throw new RuntimeException('Instagram Python client timed out.');
             }
 
-            $seconds = (int) floor($remaining);
-            $microseconds = (int) (($remaining - $seconds) * 1_000_000);
+            $seconds = (int)floor($remaining);
+            $microseconds = (int)(($remaining - $seconds) * 1_000_000);
             $read = [$stream];
             $write = null;
             $except = null;
@@ -146,7 +146,7 @@ final class InstagramPythonBridge
 
             throw new RuntimeException(
                 'Instagram Python client wait failed.'
-                . ($selectError === null ? '' : ' '.$selectError),
+                . ($selectError === null ? '' : ' ' . $selectError),
             );
         }
     }
@@ -210,8 +210,8 @@ final class InstagramPythonBridge
             $headers = $interaction['request_headers'] ?? [];
 
             $logger->logHttpInteraction(
-                method: (string) ($interaction['method'] ?? 'GET'),
-                url: (string) ($interaction['url'] ?? ''),
+                method: (string)($interaction['method'] ?? 'GET'),
+                url: (string)($interaction['url'] ?? ''),
                 requestHeaders: is_array($headers) ? $headers : [],
                 requestBody: is_string($interaction['request_body'] ?? null)
                     ? $interaction['request_body']
@@ -223,7 +223,7 @@ final class InstagramPythonBridge
                     ? $interaction['response_body']
                     : null,
                 durationSeconds: is_numeric($interaction['duration_seconds'] ?? null)
-                    ? (float) $interaction['duration_seconds']
+                    ? (float)$interaction['duration_seconds']
                     : 0.0,
                 error: is_string($interaction['error'] ?? null)
                     ? $interaction['error']

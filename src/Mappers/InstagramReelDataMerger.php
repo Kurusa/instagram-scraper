@@ -12,7 +12,8 @@ final readonly class InstagramReelDataMerger
         InstagramReelData $source,
         InstagramReelData $detail,
         ?InstagramReelData $profile = null,
-    ): InstagramReelData {
+    ): InstagramReelData
+    {
         $playCount = $profile?->playCount
             ?? $source->playCount
             ?? $detail->playCount;
@@ -26,29 +27,29 @@ final readonly class InstagramReelDataMerger
         return new InstagramReelData(
             shortcode: $detail->shortcode,
             instagramMediaPk: $detail->instagramMediaPk
-                ?? $profile?->instagramMediaPk
-                ?? $source->instagramMediaPk,
+            ?? $profile?->instagramMediaPk
+            ?? $source->instagramMediaPk,
             takenAt: $detail->takenAt
-                ?? $profile?->takenAt
-                ?? $source->takenAt,
+            ?? $profile?->takenAt
+            ?? $source->takenAt,
             captionText: $detail->captionText
-                ?? $profile?->captionText
-                ?? $source->captionText,
+            ?? $profile?->captionText
+            ?? $source->captionText,
             likeCount: $detail->likeCount
-                ?? $profile?->likeCount
-                ?? $source->likeCount,
+            ?? $profile?->likeCount
+            ?? $source->likeCount,
             commentCount: $detail->commentCount
-                ?? $profile?->commentCount
-                ?? $source->commentCount,
+            ?? $profile?->commentCount
+            ?? $source->commentCount,
             videoUrl: $detail->videoUrl
-                ?? $profile?->videoUrl
-                ?? $source->videoUrl,
+            ?? $profile?->videoUrl
+            ?? $source->videoUrl,
             thumbnailUrl: $detail->thumbnailUrl
-                ?? $profile?->thumbnailUrl
-                ?? $source->thumbnailUrl,
+            ?? $profile?->thumbnailUrl
+            ?? $source->thumbnailUrl,
             videoDurationSeconds: $detail->videoDurationSeconds
-                ?? $profile?->videoDurationSeconds
-                ?? $source->videoDurationSeconds,
+            ?? $profile?->videoDurationSeconds
+            ?? $source->videoDurationSeconds,
             playCount: $playCount,
             rawData: $rawData,
         );

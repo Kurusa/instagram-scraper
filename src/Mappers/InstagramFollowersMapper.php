@@ -47,19 +47,19 @@ final readonly class InstagramFollowersMapper
                 }
 
                 $followers[] = new InstagramFollowerData(
-                    igUserId: (string) $igUserId,
+                    igUserId: (string)$igUserId,
                     username: $username,
                     fullName: is_string($node['full_name'] ?? null) ? $node['full_name'] : null,
                     profilePicUrl: is_string($node['profile_pic_url'] ?? null) ? $node['profile_pic_url'] : null,
-                    isPrivate: (bool) ($node['is_private'] ?? false),
-                    isVerified: (bool) ($node['is_verified'] ?? false),
+                    isPrivate: (bool)($node['is_private'] ?? false),
+                    isVerified: (bool)($node['is_verified'] ?? false),
                 );
             }
         }
 
         $pageInfo = $edgeFollowedBy['page_info'] ?? [];
         $endCursor = is_array($pageInfo) ? ($pageInfo['end_cursor'] ?? null) : null;
-        $hasNextPage = is_array($pageInfo) && (bool) ($pageInfo['has_next_page'] ?? false);
+        $hasNextPage = is_array($pageInfo) && (bool)($pageInfo['has_next_page'] ?? false);
 
         return new InstagramFollowersPageData(
             followers: $followers,

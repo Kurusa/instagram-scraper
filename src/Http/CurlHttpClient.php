@@ -67,7 +67,7 @@ final readonly class CurlHttpClient
         $responseBody = curl_exec($curlHandle);
         $durationSeconds = microtime(true) - $startedAt;
 
-        $statusCode = (int) curl_getinfo($curlHandle, CURLINFO_RESPONSE_CODE);
+        $statusCode = (int)curl_getinfo($curlHandle, CURLINFO_RESPONSE_CODE);
         $curlError = curl_error($curlHandle);
 
         $loggedHeaders = $cookieHeader === null || $cookieHeader === ''

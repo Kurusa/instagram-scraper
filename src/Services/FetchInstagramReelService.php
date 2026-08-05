@@ -64,7 +64,7 @@ final readonly class FetchInstagramReelService
         $ownerId = $media['user']['pk'] ?? $media['user']['id'] ?? null;
 
         if (is_int($ownerId)) {
-            return (string) $ownerId;
+            return (string)$ownerId;
         }
 
         return is_string($ownerId) && $ownerId !== ''
@@ -75,7 +75,8 @@ final readonly class FetchInstagramReelService
     private function findReelInOwnerProfile(
         string $shortcode,
         ?string $ownerId,
-    ): ?InstagramReelData {
+    ): ?InstagramReelData
+    {
         if ($ownerId === null || $this->profileReelLookupMaxPages < 1) {
             return null;
         }
