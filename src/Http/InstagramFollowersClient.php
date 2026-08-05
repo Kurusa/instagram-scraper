@@ -19,6 +19,12 @@ final readonly class InstagramFollowersClient
 
     private const int REQUEST_DELAY_MICROSECONDS = 500000;
 
+    private const int MAX_ATTEMPTS = 6;
+
+    private const int RETRY_BASE_DELAY_SECONDS = 3;
+
+    private const int RETRY_MAX_DELAY_SECONDS = 45;
+
     public function __construct(
         private InstagramScraperConfig $instagramScraperConfig,
     )
@@ -57,6 +63,33 @@ final readonly class InstagramFollowersClient
             usleep(self::REQUEST_DELAY_MICROSECONDS);
         }
 
+        $attempt = 0;
+
+        while (true) {
+            $attempt++;
+
+            try {
+                return $this->fetchOnce($url);
+            } catch (RuntimeException $exception) {
+                if ($attempt >= self::MAX_ATTEMPTS || !$this->isRetryable($exception)) {
+                    throw $exception;
+                }
+
+                $delaySeconds = min(
+                    self::RETRY_MAX_DELAY_SECONDS,
+                    self::RETRY_BASE_DELAY_SECONDS * (2 ** ($attempt - 1)),
+                );
+
+                sleep($delaySeconds);
+            }
+        }
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function fetchOnce(string $url): array
+    {
         $curlResponse = $this->getWithCurl($url);
 
         if ($curlResponse['status_code'] < 200 || $curlResponse['status_code'] >= 300) {
@@ -74,6 +107,43 @@ final readonly class InstagramFollowersClient
         }
 
         return $this->decodeResponseBody($curlResponse['body']);
+    }
+
+    private function isRetryable(RuntimeException $exception): bool
+    {
+        $message = $exception->getMessage();
+
+        if (preg_match('/HTTP (\d{3})/', $message, $matches) === 1) {
+            $statusCode = (int) $matches[1];
+
+            return $statusCode === 429 || $statusCode === 408 || $statusCode >= 500;
+        }
+
+        $transientSignals = [
+            'CONNECT tunnel failed',
+            'Could not resolve host',
+            'Connection refused',
+            'Connection reset',
+            'Connection closed',
+            'Connection timed out',
+            'Operation timed out',
+            'Failed to connect',
+            'Recv failure',
+            'SSL_connect',
+            'SSL_ERROR',
+            'timed out',
+            'empty response',
+            'invalid JSON',
+            'invalid response',
+        ];
+
+        foreach ($transientSignals as $signal) {
+            if (stripos($message, $signal) !== false) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
