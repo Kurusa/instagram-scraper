@@ -140,19 +140,7 @@ final class InstagramReelGraphqlClient
 
         fflush($this->pipes[0]);
 
-        $read = [$this->pipes[1]];
-        $write = null;
-        $except = null;
-        $ready = stream_select(
-            $read,
-            $write,
-            $except,
-            $this->config->pythonRequestTimeoutSeconds + 5,
-        );
-
-        if ($ready !== 1) {
-            throw new RuntimeException('Instagram Python client timed out.');
-        }
+        $this->waitForResponse($this->pipes[1]);
 
         $responseLine = fgets($this->pipes[1]);
 
@@ -176,6 +164,70 @@ final class InstagramReelGraphqlClient
         }
 
         return $response;
+    }
+
+    /**
+     * @param resource $stream
+     */
+    private function waitForResponse(mixed $stream): void
+    {
+        $deadline = microtime(true) + $this->config->pythonRequestTimeoutSeconds + 5;
+
+        while (true) {
+            $remaining = $deadline - microtime(true);
+
+            if ($remaining <= 0) {
+                throw new RuntimeException('Instagram Python client timed out.');
+            }
+
+            $seconds = (int) floor($remaining);
+            $microseconds = (int) (($remaining - $seconds) * 1_000_000);
+            $read = [$stream];
+            $write = null;
+            $except = null;
+            $selectError = null;
+
+            set_error_handler(
+                static function (int $severity, string $message) use (&$selectError): bool {
+                    $selectError = $message;
+
+                    return true;
+                },
+            );
+
+            try {
+                $ready = stream_select(
+                    $read,
+                    $write,
+                    $except,
+                    $seconds,
+                    $microseconds,
+                );
+            } finally {
+                restore_error_handler();
+            }
+
+            if ($ready === 1) {
+                return;
+            }
+
+            if (
+                $ready === false
+                && is_string($selectError)
+                && str_contains($selectError, 'Interrupted system call')
+            ) {
+                continue;
+            }
+
+            if ($ready === 0) {
+                throw new RuntimeException('Instagram Python client timed out.');
+            }
+
+            throw new RuntimeException(
+                'Instagram Python client wait failed.'
+                . ($selectError === null ? '' : ' '.$selectError),
+            );
+        }
     }
 
     private function ensureProcessStarted(): void

@@ -20,6 +20,7 @@ final readonly class InstagramScraperConfig
         public int $pythonRequestTimeoutSeconds = 45,
         public int $anonymousSessionTtlSeconds = 300,
         public int $profileReelLookupMaxPages = 30,
+        public ?InstagramSessionCookies $sessionCookies = null,
     )
     {
     }

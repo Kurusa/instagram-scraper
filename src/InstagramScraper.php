@@ -5,10 +5,13 @@ declare(strict_types=1);
 namespace Kurusa\InstagramScraper;
 
 use Kurusa\InstagramScraper\Config\InstagramScraperConfig;
+use Kurusa\InstagramScraper\DTO\InstagramFollowersPageData;
 use Kurusa\InstagramScraper\DTO\InstagramProfileReelsData;
 use Kurusa\InstagramScraper\DTO\InstagramReelData;
+use Kurusa\InstagramScraper\Http\InstagramFollowersClient;
 use Kurusa\InstagramScraper\Http\InstagramGraphqlClient;
 use Kurusa\InstagramScraper\Http\InstagramReelGraphqlClient;
+use Kurusa\InstagramScraper\Mappers\InstagramFollowersMapper;
 use Kurusa\InstagramScraper\Mappers\InstagramProfileReelsGraphqlMapper;
 use Kurusa\InstagramScraper\Mappers\InstagramReelDataMerger;
 use Kurusa\InstagramScraper\Mappers\InstagramReelGraphqlMapper;
@@ -24,11 +27,17 @@ final readonly class InstagramScraper
 
     private InstagramReelGraphqlClient $instagramReelGraphqlClient;
 
+    private InstagramFollowersClient $instagramFollowersClient;
+
+    private InstagramFollowersMapper $instagramFollowersMapper;
+
     public function __construct(public InstagramScraperConfig $instagramScraperConfig)
     {
         $this->instagramGraphqlClient = new InstagramGraphqlClient($instagramScraperConfig);
         $this->instagramProfileReelsGraphqlMapper = new InstagramProfileReelsGraphqlMapper();
         $this->instagramReelGraphqlClient = new InstagramReelGraphqlClient($instagramScraperConfig);
+        $this->instagramFollowersClient = new InstagramFollowersClient($instagramScraperConfig);
+        $this->instagramFollowersMapper = new InstagramFollowersMapper();
         $this->fetchInstagramReelService = new FetchInstagramReelService(
             instagramReelGraphqlClient: $this->instagramReelGraphqlClient,
             instagramReelGraphqlMapper: new InstagramReelGraphqlMapper(),
@@ -37,6 +46,23 @@ final readonly class InstagramScraper
             instagramReelDataMerger: new InstagramReelDataMerger(),
             profileReelLookupMaxPages: $instagramScraperConfig->profileReelLookupMaxPages,
         );
+    }
+
+    public function fetchFollowersPage(
+        string $targetUserId,
+        ?string $maxId = null,
+    ): InstagramFollowersPageData
+    {
+        $response = $this
+            ->instagramFollowersClient
+            ->fetchFollowersPage(
+                targetUserId: $targetUserId,
+                maxId: $maxId,
+            );
+
+        return $this
+            ->instagramFollowersMapper
+            ->fromResponse($response);
     }
 
     public function fetchProfileReelsPage(
