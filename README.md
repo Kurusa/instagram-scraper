@@ -71,7 +71,6 @@ The profile query is therefore the source of reel discovery, pagination, and
 
 `InstagramScraper::fetchReel()` accepts the profile/list `InstagramReelData`, delegates
 the detail request to a persistent Python process, and returns a complete merged DTO.
-`fetchReelByShortcode()` remains available for callers that only have a URL/shortcode.
 The Python client uses `curl_cffi` because Instagram only returns the logged-out
 detail GraphQL response to requests with a browser-compatible TLS fingerprint.
 Ordinary PHP/libcurl receives the Instagram homepage instead of JSON.
@@ -157,8 +156,10 @@ larger than the detail JSON response.
 
 ## Python process and session reuse
 
-`InstagramReelGraphqlClient` starts one long-lived Python child process per PHP client
+`InstagramPythonBridge` starts one long-lived Python child process per PHP client
 instance and communicates with it using one-line JSON messages over stdin/stdout.
+`InstagramReelDetailClient` and `InstagramProfileResolver` share this bridge for
+reel-detail fetching and username-to-id resolution respectively.
 
 The Python process:
 
