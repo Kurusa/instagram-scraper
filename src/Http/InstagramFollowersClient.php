@@ -11,9 +11,11 @@ use RuntimeException;
 
 final readonly class InstagramFollowersClient
 {
-    private const string FOLLOWERS_URL_TEMPLATE = 'https://www.instagram.com/api/v1/friendships/%s/followers/';
+    private const string GRAPHQL_URL = 'https://www.instagram.com/graphql/query/';
 
-    private const int PAGE_SIZE = 25;
+    private const string FOLLOWERS_QUERY_HASH = '37479f2b8209594dde7facb0d904896a';
+
+    private const int PAGE_SIZE = 50;
 
     private const int TIMEOUT_SECONDS = 30;
 
@@ -36,28 +38,39 @@ final readonly class InstagramFollowersClient
      */
     public function fetchFollowersPage(
         string $targetUserId,
-        ?string $maxId = null,
-        ?string $searchSurface = 'follow_list_page',
+        ?string $cursor = null,
     ): array
     {
         if ($this->instagramScraperConfig->sessionCookies === null) {
             throw new RuntimeException('Instagram session cookies are required to fetch followers.');
         }
 
-        $query = [
-            'count' => self::PAGE_SIZE,
+        $variables = [
+            'id' => $targetUserId,
+            'include_reel' => false,
+            'fetch_mutual' => false,
+            'first' => self::PAGE_SIZE,
         ];
 
-        if ($searchSurface !== null && $searchSurface !== '') {
-            $query['search_surface'] = $searchSurface;
+        if ($cursor !== null && $cursor !== '') {
+            $variables['after'] = $cursor;
         }
 
-        if ($maxId !== null && $maxId !== '') {
-            $query['max_id'] = $maxId;
+        try {
+            $encodedVariables = json_encode($variables, JSON_THROW_ON_ERROR);
+        } catch (JsonException $exception) {
+            throw new RuntimeException('Could not encode Instagram followers query variables.', previous: $exception);
         }
 
-        $url = sprintf(self::FOLLOWERS_URL_TEMPLATE, rawurlencode($targetUserId))
-            . '?' . http_build_query($query, '', '&', PHP_QUERY_RFC3986);
+        $url = self::GRAPHQL_URL . '?' . http_build_query(
+            [
+                'query_hash' => self::FOLLOWERS_QUERY_HASH,
+                'variables' => $encodedVariables,
+            ],
+            '',
+            '&',
+            PHP_QUERY_RFC3986,
+        );
 
         if (self::REQUEST_DELAY_MICROSECONDS > 0) {
             usleep(self::REQUEST_DELAY_MICROSECONDS);

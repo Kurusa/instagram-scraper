@@ -14,17 +14,29 @@ final readonly class InstagramFollowersMapper
      */
     public function fromResponse(array $response): InstagramFollowersPageData
     {
-        $users = $response['users'] ?? [];
+        $edgeFollowedBy = ($response['data']['user']['edge_followed_by'] ?? null);
+
+        if (!is_array($edgeFollowedBy)) {
+            return new InstagramFollowersPageData(
+                followers: [],
+                nextMaxId: null,
+                hasMore: false,
+            );
+        }
+
+        $edges = $edgeFollowedBy['edges'] ?? [];
         $followers = [];
 
-        if (is_array($users)) {
-            foreach ($users as $user) {
-                if (!is_array($user)) {
+        if (is_array($edges)) {
+            foreach ($edges as $edge) {
+                $node = is_array($edge) ? ($edge['node'] ?? null) : null;
+
+                if (!is_array($node)) {
                     continue;
                 }
 
-                $igUserId = $user['pk'] ?? $user['pk_id'] ?? $user['id'] ?? null;
-                $username = $user['username'] ?? null;
+                $igUserId = $node['id'] ?? null;
+                $username = $node['username'] ?? null;
 
                 if (!is_string($igUserId) && !is_int($igUserId)) {
                     continue;
@@ -37,20 +49,22 @@ final readonly class InstagramFollowersMapper
                 $followers[] = new InstagramFollowerData(
                     igUserId: (string) $igUserId,
                     username: $username,
-                    fullName: is_string($user['full_name'] ?? null) ? $user['full_name'] : null,
-                    profilePicUrl: is_string($user['profile_pic_url'] ?? null) ? $user['profile_pic_url'] : null,
-                    isPrivate: (bool) ($user['is_private'] ?? false),
-                    isVerified: (bool) ($user['is_verified'] ?? false),
+                    fullName: is_string($node['full_name'] ?? null) ? $node['full_name'] : null,
+                    profilePicUrl: is_string($node['profile_pic_url'] ?? null) ? $node['profile_pic_url'] : null,
+                    isPrivate: (bool) ($node['is_private'] ?? false),
+                    isVerified: (bool) ($node['is_verified'] ?? false),
                 );
             }
         }
 
-        $nextMaxId = $response['next_max_id'] ?? null;
+        $pageInfo = $edgeFollowedBy['page_info'] ?? [];
+        $endCursor = is_array($pageInfo) ? ($pageInfo['end_cursor'] ?? null) : null;
+        $hasNextPage = is_array($pageInfo) && (bool) ($pageInfo['has_next_page'] ?? false);
 
         return new InstagramFollowersPageData(
             followers: $followers,
-            nextMaxId: is_string($nextMaxId) && $nextMaxId !== '' ? $nextMaxId : null,
-            hasMore: (bool) ($response['has_more'] ?? false),
+            nextMaxId: is_string($endCursor) && $endCursor !== '' ? $endCursor : null,
+            hasMore: $hasNextPage,
         );
     }
 }

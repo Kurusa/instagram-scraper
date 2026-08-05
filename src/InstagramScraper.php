@@ -50,14 +50,14 @@ final readonly class InstagramScraper
 
     public function fetchFollowersPage(
         string $targetUserId,
-        ?string $maxId = null,
+        ?string $cursor = null,
     ): InstagramFollowersPageData
     {
         $response = $this
             ->instagramFollowersClient
             ->fetchFollowersPage(
                 targetUserId: $targetUserId,
-                maxId: $maxId,
+                cursor: $cursor,
             );
 
         return $this
