@@ -5,11 +5,11 @@ declare(strict_types=1);
 namespace Kurusa\InstagramScraper\Http;
 
 use JsonException;
-use Kurusa\InstagramScraper\Config\InstagramProxy;
 use Kurusa\InstagramScraper\Config\InstagramScraperConfig;
+use Kurusa\InstagramScraper\Logging\RequestLogger;
 use RuntimeException;
 
-final class InstagramReelGraphqlClient
+final class InstagramPythonBridge
 {
     /** @var resource|null */
     private mixed $process = null;
@@ -24,100 +24,21 @@ final class InstagramReelGraphqlClient
     }
 
     /**
-     * @return array<string, mixed>|null
-     */
-    public function fetchMediaByShortcode(
-        string $shortcode,
-        ?string $instagramMediaPk = null,
-    ): ?array
-    {
-        $proxy = InstagramProxy::pickRandom($this->config->proxies);
-
-        $command = [
-            'shortcode' => $shortcode,
-            'media_id' => $instagramMediaPk,
-            'app_id' => $this->config->graphqlAppId,
-            'impersonate' => $this->config->browserImpersonation,
-            'request_timeout_seconds' => $this->config->pythonRequestTimeoutSeconds,
-            'session_ttl_seconds' => $this->config->anonymousSessionTtlSeconds,
-            'proxy' => $proxy === null ? null : [
-                'host' => $proxy->ip,
-                'port' => $proxy->port,
-                'username' => $proxy->user,
-                'password' => $proxy->password,
-            ],
-        ];
-
-        $result = $this->execute($command);
-        $this->logInteractions($result['interactions'] ?? []);
-
-        if (($result['ok'] ?? false) !== true) {
-            return null;
-        }
-
-        $media = $result['media'] ?? null;
-
-        return is_array($media) ? $media : null;
-    }
-
-    /**
-     * @return array{id: string, username: string}|null
-     */
-    public function fetchProfileByUsername(string $username): ?array
-    {
-        $proxy = InstagramProxy::pickRandom($this->config->proxies);
-
-        $command = [
-            'action' => 'resolve_profile',
-            'username' => $username,
-            'app_id' => $this->config->graphqlAppId,
-            'impersonate' => $this->config->browserImpersonation,
-            'request_timeout_seconds' => $this->config->pythonRequestTimeoutSeconds,
-            'session_ttl_seconds' => $this->config->anonymousSessionTtlSeconds,
-            'proxy' => $proxy === null ? null : [
-                'host' => $proxy->ip,
-                'port' => $proxy->port,
-                'username' => $proxy->user,
-                'password' => $proxy->password,
-            ],
-        ];
-
-        $result = $this->execute($command);
-        $this->logInteractions($result['interactions'] ?? []);
-
-        if (($result['ok'] ?? false) !== true) {
-            return null;
-        }
-
-        $profile = $result['profile'] ?? null;
-
-        if (
-            !is_array($profile)
-            || !is_string($profile['id'] ?? null)
-            || !is_string($profile['username'] ?? null)
-        ) {
-            return null;
-        }
-
-        return [
-            'id' => $profile['id'],
-            'username' => $profile['username'],
-        ];
-    }
-
-    /**
      * @param array<string, mixed> $command
      * @return array<string, mixed>
      */
-    private function execute(array $command): array
+    public function execute(array $command): array
     {
         try {
-            return $this->sendCommand($command);
+            $response = $this->sendCommand($command);
         } catch (RuntimeException) {
             $this->stopProcess();
-
-            return $this->sendCommand($command);
+            $response = $this->sendCommand($command);
         }
+
+        $this->logInteractions($response['interactions'] ?? []);
+
+        return $response;
     }
 
     /**
@@ -273,12 +194,11 @@ final class InstagramReelGraphqlClient
         stream_set_blocking($this->pipes[2], false);
     }
 
-    /**
-     * @param mixed $interactions
-     */
     private function logInteractions(mixed $interactions): void
     {
-        if (!is_array($interactions) || $this->config->requestLogger === null) {
+        $logger = $this->config->requestLogger;
+
+        if (!is_array($interactions) || !$logger instanceof RequestLogger) {
             return;
         }
 
@@ -289,9 +209,9 @@ final class InstagramReelGraphqlClient
 
             $headers = $interaction['request_headers'] ?? [];
 
-            $this->config->requestLogger->logHttpInteraction(
-                method: (string)($interaction['method'] ?? 'GET'),
-                url: (string)($interaction['url'] ?? ''),
+            $logger->logHttpInteraction(
+                method: (string) ($interaction['method'] ?? 'GET'),
+                url: (string) ($interaction['url'] ?? ''),
                 requestHeaders: is_array($headers) ? $headers : [],
                 requestBody: is_string($interaction['request_body'] ?? null)
                     ? $interaction['request_body']
@@ -303,7 +223,7 @@ final class InstagramReelGraphqlClient
                     ? $interaction['response_body']
                     : null,
                 durationSeconds: is_numeric($interaction['duration_seconds'] ?? null)
-                    ? (float)$interaction['duration_seconds']
+                    ? (float) $interaction['duration_seconds']
                     : 0.0,
                 error: is_string($interaction['error'] ?? null)
                     ? $interaction['error']

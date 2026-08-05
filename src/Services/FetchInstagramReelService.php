@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Kurusa\InstagramScraper\Services;
 
 use Kurusa\InstagramScraper\DTO\InstagramReelData;
-use Kurusa\InstagramScraper\Http\InstagramGraphqlClient;
-use Kurusa\InstagramScraper\Http\InstagramReelGraphqlClient;
+use Kurusa\InstagramScraper\Http\InstagramProfileReelsClient;
+use Kurusa\InstagramScraper\Http\InstagramReelDetailClient;
 use Kurusa\InstagramScraper\Mappers\InstagramProfileReelsGraphqlMapper;
 use Kurusa\InstagramScraper\Mappers\InstagramReelDataMerger;
 use Kurusa\InstagramScraper\Mappers\InstagramReelGraphqlMapper;
@@ -14,9 +14,9 @@ use Kurusa\InstagramScraper\Mappers\InstagramReelGraphqlMapper;
 final readonly class FetchInstagramReelService
 {
     public function __construct(
-        private InstagramReelGraphqlClient $instagramReelGraphqlClient,
+        private InstagramReelDetailClient $instagramReelDetailClient,
         private InstagramReelGraphqlMapper $instagramReelGraphqlMapper,
-        private InstagramGraphqlClient $instagramGraphqlClient,
+        private InstagramProfileReelsClient $instagramProfileReelsClient,
         private InstagramProfileReelsGraphqlMapper $instagramProfileReelsGraphqlMapper,
         private InstagramReelDataMerger $instagramReelDataMerger,
         private int $profileReelLookupMaxPages,
@@ -26,7 +26,7 @@ final readonly class FetchInstagramReelService
 
     public function fetch(InstagramReelData $sourceReel): ?InstagramReelData
     {
-        $media = $this->instagramReelGraphqlClient->fetchMediaByShortcode(
+        $media = $this->instagramReelDetailClient->fetchMediaByShortcode(
             shortcode: $sourceReel->shortcode,
             instagramMediaPk: $sourceReel->instagramMediaPk,
         );
@@ -64,7 +64,7 @@ final readonly class FetchInstagramReelService
         $ownerId = $media['user']['pk'] ?? $media['user']['id'] ?? null;
 
         if (is_int($ownerId)) {
-            return (string)$ownerId;
+            return (string) $ownerId;
         }
 
         return is_string($ownerId) && $ownerId !== ''
@@ -83,14 +83,10 @@ final readonly class FetchInstagramReelService
         $cursor = null;
 
         for ($page = 1; $page <= $this->profileReelLookupMaxPages; $page++) {
-            $graphqlResponse = $this->instagramGraphqlClient->fetchProfileReelsPage(
+            $graphqlResponse = $this->instagramProfileReelsClient->fetchProfileReelsPage(
                 targetUserId: $ownerId,
                 cursor: $cursor,
             );
-
-            if ($graphqlResponse === null) {
-                return null;
-            }
 
             $profilePage = $this
                 ->instagramProfileReelsGraphqlMapper

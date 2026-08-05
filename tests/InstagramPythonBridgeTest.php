@@ -5,11 +5,11 @@ declare(strict_types=1);
 namespace Kurusa\InstagramScraper\Tests;
 
 use Kurusa\InstagramScraper\Config\InstagramScraperConfig;
-use Kurusa\InstagramScraper\Http\InstagramReelGraphqlClient;
+use Kurusa\InstagramScraper\Http\InstagramPythonBridge;
 use PHPUnit\Framework\TestCase;
 use ReflectionMethod;
 
-final class InstagramReelGraphqlClientTest extends TestCase
+final class InstagramPythonBridgeTest extends TestCase
 {
     public function testItContinuesWaitingWhenStreamSelectIsInterruptedByASignal(): void
     {
@@ -48,7 +48,7 @@ final class InstagramReelGraphqlClientTest extends TestCase
         pcntl_alarm(1);
 
         try {
-            $client = new InstagramReelGraphqlClient(
+            $bridge = new InstagramPythonBridge(
                 new InstagramScraperConfig(
                     graphqlCsrfToken: 'csrf',
                     graphqlAppId: 'app',
@@ -56,8 +56,8 @@ final class InstagramReelGraphqlClientTest extends TestCase
                 ),
             );
 
-            $waitForResponse = new ReflectionMethod($client, 'waitForResponse');
-            $waitForResponse->invoke($client, $streams[0]);
+            $waitForResponse = new ReflectionMethod($bridge, 'waitForResponse');
+            $waitForResponse->invoke($bridge, $streams[0]);
 
             self::assertSame('ready', trim((string) fgets($streams[0])));
         } finally {

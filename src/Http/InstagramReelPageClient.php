@@ -6,7 +6,6 @@ namespace Kurusa\InstagramScraper\Http;
 
 use Kurusa\InstagramScraper\Config\InstagramProxy;
 use Kurusa\InstagramScraper\Config\InstagramScraperConfig;
-use RuntimeException;
 
 final readonly class InstagramReelPageClient
 {
@@ -16,6 +15,7 @@ final readonly class InstagramReelPageClient
 
     public function __construct(
         private InstagramScraperConfig $config,
+        private CurlHttpClient $curlHttpClient,
     )
     {
     }
@@ -24,66 +24,29 @@ final readonly class InstagramReelPageClient
     {
         $url = 'https://www.instagram.com/reels/' . $shortcode . '/';
 
-        $curlHandle = curl_init($url);
-
-        if ($curlHandle === false) {
-            throw new RuntimeException('Could not initialize cURL.');
-        }
-
-        $proxyOptions = InstagramProxy::pickRandom($this->config->proxies)?->curlOptions() ?? [];
-
-        $requestHeaders = [
-            'accept' => 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-            'accept-language' => 'en-US,en;q=0.9',
-            'referer' => 'https://www.instagram.com/',
-            'sec-fetch-dest' => 'document',
-            'sec-fetch-mode' => 'navigate',
-            'sec-fetch-site' => 'same-origin',
-            'sec-fetch-user' => '?1',
-            'upgrade-insecure-requests' => '1',
-            'user-agent' => self::USER_AGENT,
-        ];
-
-        curl_setopt_array($curlHandle, $proxyOptions + [
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_FOLLOWLOCATION => true,
-            CURLOPT_TIMEOUT => self::TIMEOUT_SECONDS,
-            CURLOPT_IPRESOLVE => CURL_IPRESOLVE_V4,
-            CURLOPT_HTTPHEADER => array_map(
-                static fn (string $name, string $value): string => $name . ': ' . $value,
-                array_keys($requestHeaders),
-                array_values($requestHeaders),
-            ),
-        ]);
-
-        $startedAt = microtime(true);
-        $responseBody = curl_exec($curlHandle);
-        $durationSeconds = microtime(true) - $startedAt;
-
-        $statusCode = (int)curl_getinfo($curlHandle, CURLINFO_RESPONSE_CODE);
-        $curlError = curl_error($curlHandle);
-
-        $responseBodyString = is_string($responseBody) ? $responseBody : null;
-
-        $this->config->requestLogger?->logHttpInteraction(
+        $response = $this->curlHttpClient->send(
             method: 'GET',
             url: $url,
-            requestHeaders: $requestHeaders,
-            requestBody: null,
-            statusCode: $statusCode > 0 ? $statusCode : null,
-            responseBody: $responseBodyString,
-            durationSeconds: $durationSeconds,
-            error: $curlError !== '' ? $curlError : null,
+            headers: [
+                'accept' => 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                'accept-language' => 'en-US,en;q=0.9',
+                'referer' => 'https://www.instagram.com/',
+                'sec-fetch-dest' => 'document',
+                'sec-fetch-mode' => 'navigate',
+                'sec-fetch-site' => 'same-origin',
+                'sec-fetch-user' => '?1',
+                'upgrade-insecure-requests' => '1',
+                'user-agent' => self::USER_AGENT,
+            ],
+            timeoutSeconds: self::TIMEOUT_SECONDS,
+            proxy: InstagramProxy::pickRandom($this->config->proxies),
+            followLocation: true,
         );
 
-        if (!is_string($responseBody) || $responseBody === '') {
+        if ($response->body === '' || !$response->isSuccessful()) {
             return null;
         }
 
-        if ($statusCode < 200 || $statusCode >= 300) {
-            return null;
-        }
-
-        return $responseBody;
+        return $response->body;
     }
 }

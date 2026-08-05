@@ -8,9 +8,12 @@ use Kurusa\InstagramScraper\Config\InstagramScraperConfig;
 use Kurusa\InstagramScraper\DTO\InstagramFollowersPageData;
 use Kurusa\InstagramScraper\DTO\InstagramProfileReelsData;
 use Kurusa\InstagramScraper\DTO\InstagramReelData;
+use Kurusa\InstagramScraper\Http\CurlHttpClient;
 use Kurusa\InstagramScraper\Http\InstagramFollowersClient;
-use Kurusa\InstagramScraper\Http\InstagramGraphqlClient;
-use Kurusa\InstagramScraper\Http\InstagramReelGraphqlClient;
+use Kurusa\InstagramScraper\Http\InstagramProfileReelsClient;
+use Kurusa\InstagramScraper\Http\InstagramProfileResolver;
+use Kurusa\InstagramScraper\Http\InstagramPythonBridge;
+use Kurusa\InstagramScraper\Http\InstagramReelDetailClient;
 use Kurusa\InstagramScraper\Mappers\InstagramFollowersMapper;
 use Kurusa\InstagramScraper\Mappers\InstagramProfileReelsGraphqlMapper;
 use Kurusa\InstagramScraper\Mappers\InstagramReelDataMerger;
@@ -19,29 +22,44 @@ use Kurusa\InstagramScraper\Services\FetchInstagramReelService;
 
 final readonly class InstagramScraper
 {
-    private InstagramGraphqlClient $instagramGraphqlClient;
+    private InstagramProfileReelsClient $instagramProfileReelsClient;
 
     private InstagramProfileReelsGraphqlMapper $instagramProfileReelsGraphqlMapper;
-
-    private FetchInstagramReelService $fetchInstagramReelService;
-
-    private InstagramReelGraphqlClient $instagramReelGraphqlClient;
 
     private InstagramFollowersClient $instagramFollowersClient;
 
     private InstagramFollowersMapper $instagramFollowersMapper;
 
+    private InstagramProfileResolver $instagramProfileResolver;
+
+    private FetchInstagramReelService $fetchInstagramReelService;
+
     public function __construct(public InstagramScraperConfig $instagramScraperConfig)
     {
-        $this->instagramGraphqlClient = new InstagramGraphqlClient($instagramScraperConfig);
+        $curlHttpClient = new CurlHttpClient($instagramScraperConfig->requestLogger);
+        $pythonBridge = new InstagramPythonBridge($instagramScraperConfig);
+
+        $this->instagramProfileReelsClient = new InstagramProfileReelsClient(
+            instagramScraperConfig: $instagramScraperConfig,
+            curlHttpClient: $curlHttpClient,
+        );
         $this->instagramProfileReelsGraphqlMapper = new InstagramProfileReelsGraphqlMapper();
-        $this->instagramReelGraphqlClient = new InstagramReelGraphqlClient($instagramScraperConfig);
-        $this->instagramFollowersClient = new InstagramFollowersClient($instagramScraperConfig);
+        $this->instagramFollowersClient = new InstagramFollowersClient(
+            instagramScraperConfig: $instagramScraperConfig,
+            curlHttpClient: $curlHttpClient,
+        );
         $this->instagramFollowersMapper = new InstagramFollowersMapper();
+        $this->instagramProfileResolver = new InstagramProfileResolver(
+            config: $instagramScraperConfig,
+            pythonBridge: $pythonBridge,
+        );
         $this->fetchInstagramReelService = new FetchInstagramReelService(
-            instagramReelGraphqlClient: $this->instagramReelGraphqlClient,
+            instagramReelDetailClient: new InstagramReelDetailClient(
+                config: $instagramScraperConfig,
+                pythonBridge: $pythonBridge,
+            ),
             instagramReelGraphqlMapper: new InstagramReelGraphqlMapper(),
-            instagramGraphqlClient: $this->instagramGraphqlClient,
+            instagramProfileReelsClient: $this->instagramProfileReelsClient,
             instagramProfileReelsGraphqlMapper: $this->instagramProfileReelsGraphqlMapper,
             instagramReelDataMerger: new InstagramReelDataMerger(),
             profileReelLookupMaxPages: $instagramScraperConfig->profileReelLookupMaxPages,
@@ -71,7 +89,7 @@ final readonly class InstagramScraper
     ): InstagramProfileReelsData
     {
         $graphqlResponse = $this
-            ->instagramGraphqlClient
+            ->instagramProfileReelsClient
             ->fetchProfileReelsPage(
                 targetUserId: $targetUserId,
                 cursor: $cursor,
@@ -79,7 +97,7 @@ final readonly class InstagramScraper
 
         return $this
             ->instagramProfileReelsGraphqlMapper
-            ->fromGraphqlResponse($graphqlResponse ?? []);
+            ->fromGraphqlResponse($graphqlResponse);
     }
 
     public function fetchReel(InstagramReelData $sourceReel): ?InstagramReelData
@@ -95,30 +113,7 @@ final readonly class InstagramScraper
     public function fetchProfileByUsername(string $username): ?array
     {
         return $this
-            ->instagramReelGraphqlClient
+            ->instagramProfileResolver
             ->fetchProfileByUsername($username);
-    }
-
-    /**
-     * @deprecated Pass the available profile data to fetchReel() when possible.
-     */
-    public function fetchReelByShortcode(
-        string $shortcode,
-        ?string $instagramMediaPk = null,
-    ): ?InstagramReelData
-    {
-        return $this->fetchReel(new InstagramReelData(
-            shortcode: $shortcode,
-            instagramMediaPk: $instagramMediaPk,
-            takenAt: null,
-            captionText: null,
-            likeCount: null,
-            commentCount: null,
-            videoUrl: null,
-            thumbnailUrl: null,
-            videoDurationSeconds: null,
-            playCount: null,
-            rawData: [],
-        ));
     }
 }

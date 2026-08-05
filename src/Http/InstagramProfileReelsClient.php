@@ -9,7 +9,7 @@ use Kurusa\InstagramScraper\Config\InstagramProxy;
 use Kurusa\InstagramScraper\Config\InstagramScraperConfig;
 use RuntimeException;
 
-final readonly class InstagramGraphqlClient
+final readonly class InstagramProfileReelsClient
 {
     private const string GRAPHQL_URL = 'https://www.instagram.com/graphql/query';
 
@@ -23,10 +23,14 @@ final readonly class InstagramGraphqlClient
 
     public function __construct(
         private InstagramScraperConfig $instagramScraperConfig,
+        private CurlHttpClient $curlHttpClient,
     )
     {
     }
 
+    /**
+     * @return array<string, mixed>
+     */
     public function fetchProfileReelsPage(
         string $targetUserId,
         ?string $cursor = null,
@@ -47,6 +51,10 @@ final readonly class InstagramGraphqlClient
         );
     }
 
+    /**
+     * @param array<string, mixed> $variables
+     * @return array<string, mixed>
+     */
     private function postGraphql(
         string $documentId,
         array $variables,
@@ -68,90 +76,39 @@ final readonly class InstagramGraphqlClient
             PHP_QUERY_RFC3986,
         );
 
-        $curlResponse = $this->postWithCurl($requestBody);
+        $response = $this->curlHttpClient->send(
+            method: 'POST',
+            url: self::GRAPHQL_URL,
+            headers: [
+                'content-type' => 'application/x-www-form-urlencoded',
+                'x-csrftoken' => $this->instagramScraperConfig->graphqlCsrfToken,
+                'x-ig-app-id' => $this->instagramScraperConfig->graphqlAppId,
+            ],
+            body: $requestBody,
+            timeoutSeconds: self::TIMEOUT_SECONDS,
+            proxy: InstagramProxy::pickRandom($this->instagramScraperConfig->proxies),
+        );
 
-        if ($curlResponse['status_code'] < 200 || $curlResponse['status_code'] >= 300) {
-            $message = $this->responseErrorMessage($curlResponse['body']);
+        if (!$response->isSuccessful()) {
+            $message = $this->responseErrorMessage($response->body);
 
             throw new RuntimeException(sprintf(
                 'Instagram profile GraphQL returned HTTP %d%s.',
-                $curlResponse['status_code'],
+                $response->statusCode,
                 $message === null ? '' : ': ' . $message,
             ));
         }
 
-        if ($curlResponse['body'] === '') {
+        if ($response->body === '') {
             throw new RuntimeException('Instagram profile GraphQL returned an empty response.');
         }
 
-        return $this->decodeResponseBody($curlResponse['body']);
+        return $this->decodeResponseBody($response->body);
     }
 
-    private function postWithCurl(string $requestBody): array
-    {
-        $curlHandle = curl_init();
-
-        if ($curlHandle === false) {
-            throw new RuntimeException('Could not initialize cURL.');
-        }
-
-        $proxyOptions = InstagramProxy::pickRandom($this->instagramScraperConfig->proxies)?->curlOptions() ?? [];
-
-        $requestHeaders = [
-            'content-type' => 'application/x-www-form-urlencoded',
-            'x-csrftoken' => $this->instagramScraperConfig->graphqlCsrfToken,
-            'x-ig-app-id' => $this->instagramScraperConfig->graphqlAppId,
-        ];
-
-        curl_setopt_array($curlHandle, $proxyOptions + [
-                CURLOPT_URL => self::GRAPHQL_URL,
-                CURLOPT_POST => true,
-                CURLOPT_POSTFIELDS => $requestBody,
-                CURLOPT_RETURNTRANSFER => true,
-                CURLOPT_HEADER => false,
-                CURLOPT_TIMEOUT => self::TIMEOUT_SECONDS,
-                CURLOPT_FOLLOWLOCATION => false,
-                CURLOPT_IPRESOLVE => CURL_IPRESOLVE_V4,
-                CURLOPT_HTTPHEADER => array_map(
-                    static fn(string $name, string $value): string => $name . ': ' . $value,
-                    array_keys($requestHeaders),
-                    array_values($requestHeaders),
-                ),
-            ]);
-
-        $startedAt = microtime(true);
-        $responseBody = curl_exec($curlHandle);
-        $durationSeconds = microtime(true) - $startedAt;
-
-        $statusCode = (int)curl_getinfo($curlHandle, CURLINFO_RESPONSE_CODE);
-        $curlError = curl_error($curlHandle);
-
-        $responseBodyString = is_string($responseBody) ? $responseBody : null;
-
-        $this
-            ->instagramScraperConfig
-            ->requestLogger
-            ?->logHttpInteraction(
-                method: 'POST',
-                url: self::GRAPHQL_URL,
-                requestHeaders: $requestHeaders,
-                requestBody: $requestBody,
-                statusCode: $statusCode,
-                responseBody: $responseBodyString,
-                durationSeconds: $durationSeconds,
-                error: $curlError !== '' ? $curlError : null,
-            );
-
-        if ($responseBody === false) {
-            throw new RuntimeException('Instagram cURL request failed: ' . $curlError);
-        }
-
-        return [
-            'status_code' => $statusCode,
-            'body' => $responseBody,
-        ];
-    }
-
+    /**
+     * @return array<string, mixed>
+     */
     private function decodeResponseBody(string $body): array
     {
         try {
